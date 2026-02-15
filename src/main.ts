@@ -164,7 +164,7 @@ class MathScene extends Phaser.Scene {
 
     nextQuestion() {
         let a = Phaser.Math.Between(1, this.zakres);
-        let b = Phaser.Math.Between(1, this.zakres);
+        let b = Phaser.Math.Between(1, 10);
 
         if (this.currentOperation === '+') {
             this.currentSolution = a + b;
@@ -180,7 +180,7 @@ class MathScene extends Phaser.Scene {
             this.problemText.setText(`${a} × ${b} = `);
         }
          else if (this.currentOperation === '÷') {
-            const b = Phaser.Math.Between(1, this.zakres); // Dzielnik
+            const b = Phaser.Math.Between(1, 10); // Dzielnik
             const result = Phaser.Math.Between(1, this.zakres); // To będzie nasz wynik
             const a = b * result; // To będzie liczba, którą dzielimy
 
@@ -227,8 +227,14 @@ class MathScene extends Phaser.Scene {
     }
 
     focusInput() {
-        this.time.delayedCall(10, () => this.htmlInput.focus());
-    }
+    this.time.delayedCall(50, () => {
+        if (this.htmlInput) {
+            this.htmlInput.focus();
+            // Opcjonalnie: czyścimy pole, jeśli coś w nim zostało
+            this.htmlInput.value = ''; 
+        }
+    });
+}
 }
 
 const config: Phaser.Types.Core.GameConfig = {
