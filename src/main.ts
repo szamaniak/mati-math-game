@@ -2,149 +2,242 @@ import './style.css';
 import Phaser from 'phaser';
 import confetti from 'canvas-confetti';
 
-// Główna scena gry
+type Operation = '+' | '-' | '*' | '÷';
+
 class MathScene extends Phaser.Scene {
+    // Stan gry
     private score: number = 0;
+    private zakres: number = 10;
     private currentSolution: number = 0;
-    
-    // Referencje do obiektów (używamy ! bo inicjalizujemy je w create)
+    private currentOperation: Operation = '+';
+
+    // Obiekty UI
     private scoreText!: Phaser.GameObjects.Text;
+    private phaserInputObject!: Phaser.GameObjects.DOMElement;
     private problemText!: Phaser.GameObjects.Text;
     private htmlInput!: HTMLInputElement;
+    private menuContainer!: Phaser.GameObjects.Container;
+    private gameContainer!: Phaser.GameObjects.Container;
 
     constructor() {
         super('MathScene');
     }
 
-    preload() {
-        // Tutaj moglibyśmy ładować zewnętrzne assety, np.:
-        // this.load.image('background', 'assets/bg.png');
+    create() {
+        
+        // console.log("GRA URUCHOMIONA - WERSJA 0.0.2");
+        console.log("MatiMatyk");
+        const savedZakres = localStorage.getItem('mati_zakres'); // Pobieramy z pamięci przeglądarki wartość pod kluczem 'mati_zakres'
+          if (savedZakres) {
+              this.zakres = parseInt(savedZakres); // Jeśli istnieje, ustawiamy naszą zmienną 'zakres' na tę wartość
+          }
+
+        // Tło dla całej sceny
+        this.add.rectangle(400, 300, 800, 600, 0x1a1a2e);
+
+        // 1. KONTENER MENU
+        this.menuContainer = this.add.container(0, 0);
+        this.createMenu();
+
+        // 2. Tworzymy kontener na ustawienia (w prawym dolnym rogu)
+        const settingsText = this.add.text(600, 550, 'Maks. liczba:', { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
+
+        const rangeInput = document.createElement('input');
+        rangeInput.type = 'number';
+        rangeInput.value = this.zakres.toString(); // Ustawiamy początkową wartość inputa na aktualny zakres
+        Object.assign(rangeInput.style, {
+            width: '50px',
+            fontSize: '20px',
+            padding: '5px',
+            textAlign: 'center',
+            borderRadius: '5px',
+            border: '2px solid #f0adb4'
+        });
+
+        // Dodajemy input do Phasera
+        const phaserRangeInput = this.add.dom(650, 550, rangeInput);
+
+        // Słuchamy zmian w polu - każda zmiana w inpucie aktualizuje naszą zmienną
+        rangeInput.addEventListener('input', () => {
+            const val = parseInt(rangeInput.value);
+            if (!isNaN(val) && val > 0) {
+                this.zakres = val;
+                // Zapisujemy w pamięci przeglądarki pod kluczem 'mati_zakres'
+                localStorage.setItem('mati_zakres', val.toString());
+            }
+        });
+
+        // Dodajemy napisy i input do menuContainer, żeby zniknęły po kliknięciu "Start"
+        this.menuContainer.add([settingsText, phaserRangeInput]);
+
+        // 3. KONTENER GRY (domyślnie ukryty)
+        this.gameContainer = this.add.container(0, 0);
+        this.gameContainer.setVisible(false);
+        this.setupGameUI();
     }
 
-    create() {
-        // 1. Tło i UI
-        this.add.rectangle(400, 300, 800, 600, 0x1a1a2e);
-        
-        this.scoreText = this.add.text(20, 20, 'Punkty: 0', { 
-            fontSize: '32px', 
-            color: '#ffffff' 
-        });
-
-        this.problemText = this.add.text(400, 200, '', { 
-            fontSize: '100px', 
-            color: '#f0adb4', 
-            fontStyle: 'bold' 
+    createMenu() {
+        const title = this.add.text(400, 100, 'MatiMatyk', { 
+            fontSize: '50px', fontStyle: 'bold', color: '#f0adb4' 
         }).setOrigin(0.5);
 
-        // 2. Tworzenie pola INPUT za pomocą DOM
-        // Tworzymy element HTML bezpośrednio w kodzie, aby nie musieć edytować index.html
-        const inputElement = document.createElement('input');
-        inputElement.type = 'number';
-        inputElement.id = 'math-input';
-        // Stylizujemy go przez właściwość style (można też w style.css)
-        Object.assign(inputElement.style, {
-            fontSize: '40px',
-            padding: '10px',
-            width: '150px',
-            textAlign: 'center',
-            borderRadius: '10px',
-            border: '4px solid #f0adb4',
-            outline: 'none'
+        const subTitle = this.add.text(400, 180, 'Wybierz działanie:', { fontSize: '24px' }).setOrigin(0.5);
+
+        // Tworzymy przyciski używając naszej pomocniczej metody
+        const btnAdd = this.createModeButton(400, 250, 'Dodawanie', '+');
+        const btnSub = this.createModeButton(400, 330, 'Odejmowanie', '-');
+        const btnMul = this.createModeButton(400, 410, 'Mnożenie', '*');
+        const btnDiv = this.createModeButton(400, 490, 'Dzielenie', '÷');
+
+        this.menuContainer.add([title, subTitle, btnAdd, btnSub, btnMul, btnDiv]);
+    }
+
+    createModeButton(x: number, y: number, label: string, op: Operation) {
+        const btn = this.add.text(x, y, label, {
+            fontSize: '32px',
+            backgroundColor: '#34495e',
+            padding: { x: 20, y: 10 },
+            fixedWidth: 300,
+            align: 'center'
+        })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+
+        btn.on('pointerover', () => btn.setStyle({ backgroundColor: '#5d6d7e' }));
+        btn.on('pointerout', () => btn.setStyle({ backgroundColor: '#34495e' }));
+        
+        btn.on('pointerdown', () => {
+            this.currentOperation = op;
+            this.startGame();
         });
 
-        // Dodajemy element do kontenera Phasera
-        this.add.dom(400, 350, inputElement);        this.htmlInput = inputElement;
+        return btn;
+    }
 
-        // 3. Obsługa klawiszy
+    setupGameUI() {
+        
+        this.scoreText = this.add.text(20, 20, 'Punkty: 0', { fontSize: '32px' });
+        
+        this.problemText = this.add.text(400, 200, '', { 
+            fontSize: '100px', fontStyle: 'bold', color: '#f0adb4' 
+        }).setOrigin(0.5);
+
+        // Input HTML
+        const inputElement = document.createElement('input');
+        inputElement.type = 'number';
+
+        const phaserInput = this.add.dom(400, 350, inputElement);
+        phaserInput.setVisible(false);
+
+        this.htmlInput = inputElement; 
+        this.phaserInputObject = phaserInput; // Musisz dodać tę zmienną do klasy na górze!
+
+        Object.assign(inputElement.style, {
+            fontSize: '40px', padding: '10px', width: '150px', textAlign: 'center',
+            borderRadius: '10px', border: '4px solid #f0adb4', outline: 'none'
+        });
+
+        this.htmlInput = inputElement;
+        this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
+
+        // Przycisk powrotu do menu
+        const backBtn = this.add.text(780, 20, 'Powrót', { fontSize: '20px', backgroundColor: '#e74c3c', padding: {x:10, y:5} })
+            .setOrigin(1, 0)
+            .setInteractive({ useHandCursor: true })
+            .on('pointerdown', () => window.location.reload()); // Najprostszy restart
+
+        this.gameContainer.add([this.scoreText, this.problemText, backBtn]);
+        
         this.input.keyboard?.on('keydown-ENTER', () => this.checkAnswer());
+    }
 
-        // 4. Start pierwszej rundy
+    startGame() {
+        this.menuContainer.setVisible(false);
+        this.gameContainer.setVisible(true);
+        this.phaserInputObject.setVisible(true);
+
+        this.score = 0;
+        this.scoreText.setText('Punkty: 0');
         this.nextQuestion();
         this.focusInput();
     }
 
     nextQuestion() {
-        const a = Phaser.Math.Between(1, 10);
-        const b = Phaser.Math.Between(1, 10);
-        this.currentSolution = a + b;
-        this.problemText.setText(`${a} + ${b} = `);
+        let a = Phaser.Math.Between(1, this.zakres);
+        let b = Phaser.Math.Between(1, this.zakres);
 
-        // Animacja pojawienia się pytania
+        if (this.currentOperation === '+') {
+            this.currentSolution = a + b;
+            this.problemText.setText(`${a} + ${b} = `);
+        } else if (this.currentOperation === '-') {
+            // Zabezpieczenie przed ujemnymi: większa liczba zawsze pierwsza
+            const max = Math.max(a, b);
+            const min = Math.min(a, b);
+            this.currentSolution = max - min;
+            this.problemText.setText(`${max} - ${min} = `);
+        } else if (this.currentOperation === '*') {
+            this.currentSolution = a * b;
+            this.problemText.setText(`${a} × ${b} = `);
+        }
+         else if (this.currentOperation === '÷') {
+            const b = Phaser.Math.Between(1, this.zakres); // Dzielnik
+            const result = Phaser.Math.Between(1, this.zakres); // To będzie nasz wynik
+            const a = b * result; // To będzie liczba, którą dzielimy
+
+            this.currentSolution = result;
+            this.problemText.setText(`${a} : ${b} = `);
+        }
+
         this.tweens.add({
             targets: this.problemText,
             scale: { from: 0.8, to: 1 },
-            alpha: { from: 0, to: 1 },
-            duration: 400,
-            ease: 'Back.easeOut'
+            duration: 300,
+            ease: 'Back.out'
         });
     }
 
     checkAnswer() {
-        const userValue = parseInt(this.htmlInput.value);
-
-        if (!isNaN(userValue)) {
-            if (userValue === this.currentSolution) {
-                this.handleWin();
+        const val = parseInt(this.htmlInput.value);
+        if (!isNaN(val)) {
+            if (val === this.currentSolution) {
+                this.score++;
+                this.scoreText.setText(`Punkty: ${this.score}`);
+                if (this.score % 5 === 0) {
+                    // Wielkie świętowanie co 5 punktów!
+                    confetti({ particleCount: 200, spread: 100 });
+                } else {
+                    // Mały efekt "błysku" napisu z punktami dla każdego punktu
+                    this.tweens.add({
+                        targets: this.scoreText,
+                        scale: 1.2,
+                        duration: 100,
+                        yoyo: true,
+                        ease: 'Quad.easeInOut'
+                    });
+                }
+                this.nextQuestion();
             } else {
-                this.handleLose();
+                this.score--;
+                this.scoreText.setText(`Punkty: ${this.score}`);
+                this.cameras.main.shake(200, 0.005);
             }
         }
-
-        // Czyścimy pole i wracamy kursorem niezależnie od wyniku
         this.htmlInput.value = '';
         this.focusInput();
     }
 
-    handleWin() {
-        this.score += 1;
-        this.scoreText.setText(`Punkty: ${this.score}`);
-        
-        confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 }
-        });
-
-        this.nextQuestion();
-    }
-
-    handleLose() {
-        this.score = Math.max(0, this.score - 1);
-        this.scoreText.setText(`Punkty: ${this.score}`);
-        
-        // Wizualny feedback błędu - potrząsanie napisem
-        this.tweens.add({
-            targets: this.problemText,
-            x: '+=10',
-            duration: 50,
-            yoyo: true,
-            repeat: 3
-        });
-        
-        this.cameras.main.shake(200, 0.005);
-    }
-
     focusInput() {
-        // Krótkie opóźnienie zapewnia, że kursor zawsze wskoczy na miejsce
-        this.time.delayedCall(10, () => {
-            this.htmlInput.focus();
-        });
+        this.time.delayedCall(10, () => this.htmlInput.focus());
     }
 }
 
-// Konfiguracja silnika
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
     parent: 'app',
-    dom: {
-        createContainer: true // To pozwala na renderowanie HTML nad Canvasem
-    },
-    scene: MathScene,
-    physics: {
-        default: 'arcade'
-    }
+    dom: { createContainer: true },
+    scene: MathScene
 };
 
 new Phaser.Game(config);
