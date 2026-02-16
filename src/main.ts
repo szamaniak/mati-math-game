@@ -33,7 +33,7 @@ class MathScene extends Phaser.Scene {
     ];
 
     // Obiekty UI
-    private tryb: string = 'nauka'; // domyślny tryb
+    private tryb: string = 'praktyka'; // domyślny tryb
     private dropdownContainer!: Phaser.GameObjects.Container;
     private isDropdownOpen: boolean = false;
     private scoreText!: Phaser.GameObjects.Text;
@@ -365,7 +365,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
 
     // 3. Wrzucamy go do Phasera i przypisujemy do obu zmiennych
     this.phaserInputObject = this.add.dom(400, 350, inputElement);
-    this.htmlInput = inputElement; // Teraz this.htmlInput to bezpośrednio INPUT
+    this.htmlInput = inputElement; 
     this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
     this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
 
@@ -420,7 +420,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         if (this.tryb === 'nauka') {
           // W nauce najpierw się witamy, a dopiero potem (po 2s) dajemy pierwsze zadanie
           this.showEinsteinSpeech("Witaj! Zaraz pokażę Ci wynik, spróbuj go zapamiętać!", 2500);
-          this.time.delayedCall(2600, () => {
+          this.time.delayedCall(2000, () => {
               this.nextQuestion();
           });
           } else {
@@ -464,17 +464,14 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
 
     // --- LOGIKA TRYBÓW ---
 
-    if (this.tryb === 'nauka') {
-        // 1. Pobieramy referencję do pola tekstowego (inputu)
-       
-        
+    if (this.tryb === 'nauka') {        
         // 2. Blokujemy wpisywanie na samym początku
         this.htmlInput.disabled = true;
         this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
         this.showEinsteinSpeech(`Zapamiętaj to!`, 1500);          
         this.problemText.setText(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
         // Po 2 sekundach pokazujemy samo pytanie
-        this.time.delayedCall(3000, () => {
+        this.time.delayedCall(2000, () => {
             this.problemText.setText('Uwaga!');
             this.tweens.add({
                 targets: this.problemText,
@@ -484,7 +481,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
             });
         });
 
-        this.time.delayedCall(6000, () => {
+        this.time.delayedCall(4000, () => {
             this.problemText.setText(questionText);
             this.htmlInput.disabled = false;
             this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
@@ -495,8 +492,26 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
                 ease: 'Back.out'
             });
         });
-    } else {
-        // Tryb PRAKTYKA i EKSPERT: Pokazujemy od razu pytanie
+    } 
+    else if (this.tryb === 'praktyka') {  
+        
+        this.time.delayedCall(1500, () => {
+            this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
+            this.showEinsteinSpeech(`Twór ruch!`, 1500);     
+            this.problemText.setText(questionText);
+            this.htmlInput.disabled = false;
+            this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
+            this.tweens.add({
+                targets: this.problemText,
+                scale: { from: 0.8, to: 1 },
+                duration: 300,
+                ease: 'Back.out'
+            });
+        });
+    }
+    
+    else {
+        // Tryb EKSPERT: Pokazujemy od razu pytanie
         this.problemText.setText(questionText);
         this.tweens.add({
             targets: this.problemText,
@@ -507,56 +522,75 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     }
 }
 
-    checkAnswer() {
-        const val = parseInt(this.htmlInput.value);
-        if (!isNaN(val)) {
-            if (val === this.currentSolution) {
-                this.score++;
-                this.scoreText.setText(`Punkty: ${this.score}`);
-                // Radosny podskok przy dobrej odpowiedzi
-                this.tweens.add({
-                    targets: this.einstein,
-                    scale: 0.22, // lekko się powiększa (z 0.2 na 0.22)
-                    y: 450,      // leci w górę
-                    duration: 100,
-                    yoyo: true,
-                    ease: 'Quad.out'
-                });
-                if (this.tryb === 'praktyka') {
-                    // Pobieramy aktualny tekst z ekranu (np. "5 + 2 = ") i dodajemy wynik
-                    const fullText = this.problemText.text + this.currentSolution;
-                    this.showEinsteinSpeech(`Świetnie! ${fullText}`, 3000);
-                }
-                if (this.score % 15 === 0) {
-                    // Wielkie świętowanie co 15 punktów!
-                    const tekst = this.getRandomCongrats();
-                    this.showEinsteinSpeech(tekst, 4000);
-                    confetti({ particleCount: 200, spread: 100 });
-                    this.tweens.add({
-                          targets: this.einstein,
-                          angle: 360,
-                          duration: 500,
-                          ease: 'Cubic.easeOut'
-                      });
-                } else {
-                    // Mały efekt "błysku" napisu z punktami dla każdego punktu
-                    this.tweens.add({
-                        targets: this.scoreText,
-                        scale: 1.2,
-                        duration: 100,
-                        yoyo: true,
-                        ease: 'Back.out'
-                    });
-                    this.showEinsteinSpeech("Ok! I hop!", 1000); 
-                }
-                this.nextQuestion();
-            } else {
+checkAnswer() {
+    // 1. Zabezpieczenie przed pustym inputem lub blokadą
+    if (this.htmlInput.disabled || this.htmlInput.value === "") return;
+
+    const val = parseInt(this.htmlInput.value);
+    if (isNaN(val)) return;
+
+    if (val === this.currentSolution) {
+        // --- LOGIKA SUKCESU ---
+        this.score++;
+        this.scoreText.setText(`Punkty: ${this.score}`);
+        this.htmlInput.value = ""; // Czyścimy od razu po poprawnej
+
+        // Radosny podskok Einsteina
+        this.tweens.add({
+            targets: this.einstein,
+            scale: 0.22,
+            y: 450,
+            duration: 100,
+            yoyo: true,
+            ease: 'Quad.out'
+        });
+
+        // --- LOGIKA KOMUNIKATÓW (DYMEK) ---
+        
+        if (this.score % 15 === 0 && this.score > 0) {
+            // Wielkie świętowanie (priorytet najwyższy)
+            const tekst = this.getRandomCongrats();
+            this.showEinsteinSpeech(tekst, 4000);
+            confetti({ particleCount: 200, spread: 100 });
+            this.tweens.add({
+                targets: this.einstein,
+                angle: 360,
+                duration: 500,
+                ease: 'Cubic.easeOut'
+            });
+        } 
+        else if (this.tryb === 'praktyka') {
+            // Specjalny komunikat dla trybu praktyka
+            const fullText = this.problemText.text + this.currentSolution;
+            this.problemText.setText(fullText); // Pokazujemy pełne równanie z wynikiem
+            this.showEinsteinSpeech(`Świetnie!`, 1000);
+        } 
+        else {
+            // Standardowa gratulacja dla pozostałych trybów
+            this.showEinsteinSpeech("Ok! I hop!", 1000);
+            this.tweens.add({
+                targets: this.scoreText,
+                scale: 1.2,
+                duration: 100,
+                yoyo: true,
+                ease: 'Back.out'
+            });
+        }
+
+        // --- PRZEJŚCIE DO KOLEJNEGO PYTANIA ---
+        // Dodajemy małe opóźnienie, żeby Mati zdążył przeczytać dymek w trybach edukacyjnych
+        const delay = (this.tryb === 'praktyka' || this.tryb === 'nauka') ? 1000 : 500;
+        this.time.delayedCall(delay, () => {
+            this.nextQuestion();
+        });
+
+    } else {
                 this.score--;
                 this.scoreText.setText(`Punkty: ${this.score}`);
                 this.cameras.main.shake(200, 0.005);
                 this.showEinsteinSpeech("Rozumiem, że to żart?", 2000); 
             }
-        }
+        
         this.htmlInput.value = '';
         this.focusInput();
     }
