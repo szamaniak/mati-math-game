@@ -9,9 +9,9 @@ const config: Phaser.Types.Core.GameConfig = {
     height: 600,
     parent: 'app',
     dom: {
-        createContainer: true // Ważne dla Twojego inputu HTML!
+        createContainer: true // Ważne dla inputu HTML!
     },
-    scene: [MathScene] // Tutaj wskazujemy naszą klasę
+    scene: [MathScene] // Tutaj wskazujemy pierwszą klasę: mathScene
 };
 
 new Phaser.Game(config);

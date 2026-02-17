@@ -9,15 +9,15 @@ export interface Question {
     newB: number; // Dodajemy opcjonalne pole do przechowywania ostatniej wartości b
 }
 export class MathLogic {
-    static generateQuestion(operation: Operation, zakres: number, tryb: string, lastA: number = -1, lastB: number = -1): Question {
+    static generateQuestion(operation: Operation, zakresA: number, zakresB: number, tryb: string, lastA: number = -1, lastB: number = -1): Question {
         //console.log(`Generowanie pytania. Tryb: ${tryb}, Ostatnie a: ${lastA}, Ostatnie b: ${lastB}`);
         if (tryb === 'start') {
-            return this.generateLinear(operation, zakres, lastA, lastB);
+            return this.generateLinear(operation, zakresA, zakresB, lastA, lastB);
         }
-        return this.generateRandom(operation, zakres, lastB);
+        return this.generateRandom(operation, zakresA, zakresB, lastB);
     }
 
-    private static generateLinear(operation: Operation, zakres: number, lastA: number, lastB: number): Question {
+    private static generateLinear(operation: Operation, zakresA: number, zakresB: number, lastA: number, lastB: number): Question {
         let a = lastA;
         let b = lastB;
 
@@ -29,13 +29,13 @@ export class MathLogic {
         b++;
 
         // Jeśli b przekroczy 10, zwiększ a i zresetuj b do 1
-        if (b > 10) {
+        if (b > zakresB) {
             b = 1;
             a++;
         }
 
         // Jeśli a przekroczy zakres, wróć do początku (pętla nauki)
-        if (a > zakres) {
+        if (a > zakresA) {
             a = 2;
             b = 1;
         }
@@ -43,11 +43,11 @@ export class MathLogic {
         return this.formatQuestion(operation, a, b);
     }
 
-    private static generateRandom(operation: Operation, zakres: number, lastB: number): Question {
-        let a = Phaser.Math.Between(2, zakres);
+    private static generateRandom(operation: Operation, zakresA: number, zakresB: number, lastB: number): Question {
+        let a = Phaser.Math.Between(2, zakresA);
         let b: number;
         do {
-            b = Phaser.Math.Between(1, 10); // Zmienione na 1-10 dla pełnej tabliczki
+            b = Phaser.Math.Between(1, zakresB); // Zmienione na 1-10 dla pełnej tabliczki
         } while (b === lastB);
 
         return this.formatQuestion(operation, a, b);

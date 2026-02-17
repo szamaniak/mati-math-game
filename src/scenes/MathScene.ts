@@ -1,13 +1,16 @@
 import Phaser from 'phaser';
 import confetti from 'canvas-confetti';
 import { MathLogic } from '../logic/MathLogic';
+import { Einstein } from '../components/Einstein';
+import { GameButton } from '../components/GameButton';
 
 type Operation = '+' | '-' | '*' | '÷';
 
 export class MathScene extends Phaser.Scene { 
 // Stan gry
     private score: number = 0;
-    private zakres: number = 10;
+    private zakresA: number = 10;
+    private zakresB: number = 10;
     private lastB: number = -1; // -1 na start, żeby przy pierwszym pytaniu nic nie blokowało
     private lastA: number = -1; // Dodajemy też lastA, żeby mieć pełną kontrolę nad generowanymi pytaniami
     private currentSolution: number = 0;
@@ -51,16 +54,15 @@ export class MathScene extends Phaser.Scene {
 
     // Obiekty UI
     private tryb: string = 'praktyka'; // domyślny tryb
+    private hintMode: boolean = false;
     private dropdownContainer!: Phaser.GameObjects.Container;
     private isDropdownOpen: boolean = false;
     private scoreText!: Phaser.GameObjects.Text;
     private phaserInputObject!: Phaser.GameObjects.DOMElement;
+    private backButton!: GameButton;
     private problemText!: Phaser.GameObjects.Text;
     private htmlInput!: HTMLInputElement; // To będzie sam "środek" (input)    
-    private einstein!: Phaser.GameObjects.Image;
-    private einsteinSpeechBubble!: Phaser.GameObjects.Graphics;
-    private einsteinSpeechText!: Phaser.GameObjects.Text;
-    private speechEvent?: Phaser.Time.TimerEvent;
+    private einstein!: Einstein;    
     private menuContainer!: Phaser.GameObjects.Container;
     private gameContainer!: Phaser.GameObjects.Container;
 
@@ -72,36 +74,6 @@ export class MathScene extends Phaser.Scene {
         const index = Phaser.Math.Between(0, this.bledneOdpowiedzi.length - 1);
         return this.bledneOdpowiedzi[index];
         }
-
-   showEinsteinSpeech(message: string, duration: number = 3000) {
-    // 1. Jeśli zegar już tyka, zatrzymaj go
-          if (this.speechEvent) {
-              this.speechEvent.remove();
-          }
-
-          // 2. Zatrzymaj trwające animacje dymku (żeby nie zniknął w trakcie alpha transition)
-          this.tweens.killTweensOf([this.einsteinSpeechBubble, this.einsteinSpeechText]);
-
-          // 3. Ustaw tekst i widoczność
-          this.einsteinSpeechText.setText(message);
-          this.einsteinSpeechBubble.setVisible(true);
-          this.einsteinSpeechText.setVisible(true);
-          this.einsteinSpeechBubble.setAlpha(1);
-          this.einsteinSpeechText.setAlpha(1);
-
-          // 4. Stwórz nowe odliczanie i przypisz do zmiennej
-          this.speechEvent = this.time.delayedCall(duration, () => {
-              this.tweens.add({
-                  targets: [this.einsteinSpeechBubble, this.einsteinSpeechText],
-                  alpha: 0,
-                  duration: 300,
-                  onComplete: () => {
-                      this.einsteinSpeechBubble.setVisible(false);
-                      this.einsteinSpeechText.setVisible(false);
-                  }
-              });
-          });
-      }
 
     constructor() {
         super('MathScene');
@@ -115,9 +87,14 @@ export class MathScene extends Phaser.Scene {
         
         // console.log("GRA URUCHOMIONA - WERSJA 0.0.2");
         console.log("MatiMatyk");
-        const savedZakres = localStorage.getItem('mati_zakres'); // Pobieramy z pamięci przeglądarki wartość pod kluczem 'mati_zakres'
+        const savedZakres = localStorage.getItem('mati_zakresA'); // Pobieramy z pamięci przeglądarki wartość pod kluczem 'mati_zakres'
           if (savedZakres) {
-              this.zakres = parseInt(savedZakres); // Jeśli istnieje, ustawiamy naszą zmienną 'zakres' na tę wartość
+              this.zakresA = parseInt(savedZakres); // Jeśli istnieje, ustawiamy naszą zmienną 'zakres' na tę wartość
+          }
+
+        const savedZakresB = localStorage.getItem('mati_zakresB'); // Pobieramy z pamięci przeglądarki wartość pod kluczem 'mati_zakresB'
+          if (savedZakresB) {
+              this.zakresB = parseInt(savedZakresB); // Jeśli istnieje, ustawiamy naszą zmienną 'zakres' na tę wartość
           }
 
         // Tło dla całej sceny
@@ -127,11 +104,11 @@ export class MathScene extends Phaser.Scene {
         this.menuContainer = this.add.container(0, 0);
         this.createMenu();
 
-        // 2. Tworzymy kontener na ustawienia (w prawym dolnym rogu)
-        const settingsText = this.add.text(600, 550, 'Maks. liczba:', { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
+        // 2. Tworzymy kontenery na ustawienia (w prawym dolnym rogu)
+        const settingsText = this.add.text(600, 520, 'Maks. liczba 1:', { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
         const rangeInput = document.createElement('input');
         rangeInput.type = 'number';
-        rangeInput.value = this.zakres.toString(); // Ustawiamy początkową wartość inputa na aktualny zakres
+        rangeInput.value = this.zakresA.toString(); // Ustawiamy początkową wartość inputa na aktualny zakres
         Object.assign(rangeInput.style, {
             width: '50px',
             fontSize: '20px',
@@ -140,22 +117,45 @@ export class MathScene extends Phaser.Scene {
             borderRadius: '5px',
             border: '2px solid #f0adb4'
         });        
-        const phaserRangeInput = this.add.dom(650, 550, rangeInput); // Dodajemy input do Phasera        
+        const phaserRangeInput = this.add.dom(650, 520, rangeInput); // Dodajemy input do Phasera        
         rangeInput.addEventListener('input', () => { // Słuchamy zmian w polu - każda zmiana w inpucie aktualizuje naszą zmienną
             const val = parseInt(rangeInput.value);
             if (!isNaN(val) && val > 0) {
-                this.zakres = val;
+                this.zakresA = val;
                 // Zapisujemy w pamięci przeglądarki pod kluczem 'mati_zakres'
-                localStorage.setItem('mati_zakres', val.toString());
+                localStorage.setItem('mati_zakresA', val.toString());
+            }
+        });
+
+        const settingsText2 = this.add.text(600, 560, 'Maks. liczba 2:', { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
+        const rangeInput2 = document.createElement('input');
+        rangeInput2.type = 'number';
+        rangeInput2.value = this.zakresB.toString(); // Ustawiamy początkową wartość inputa na aktualny zakres
+        Object.assign(rangeInput2.style, {
+            width: '50px',
+            fontSize: '20px',
+            padding: '5px',
+            textAlign: 'center',
+            borderRadius: '5px',
+            border: '2px solid #f0adb4'
+        });        
+        const phaserRangeInput2 = this.add.dom(650, 560, rangeInput2); // Dodajemy input do Phasera        
+        rangeInput2.addEventListener('input', () => { // Słuchamy zmian w polu - każda zmiana w inpucie aktualizuje naszą zmienną
+            const val = parseInt(rangeInput2.value);
+            if (!isNaN(val) && val > 0) {
+                this.zakresB = val;
+                // Zapisujemy w pamięci przeglądarki pod kluczem 'mati_zakres'
+                localStorage.setItem('mati_zakresB', val.toString());
             }
         });
 
         // Dodajemy napisy i input do menuContainer, żeby zniknęły po kliknięciu "Start"
         this.menuContainer.add([settingsText, phaserRangeInput]);
+        this.menuContainer.add([settingsText2, phaserRangeInput2]);
 
         // animacje
         // Tworzymy kilka losowych symboli w tle
-        const symbols = ['+', '-', '×', '÷', '=', '%'];
+        const symbols = ['+', '-', '×', '÷', '=', '%', '√', '∑', 'π', '∞', '>', '<'];
         for (let i = 0; i < 15; i++) {
             const x = Phaser.Math.Between(0, 800);
             const y = Phaser.Math.Between(0, 600);
@@ -178,46 +178,16 @@ export class MathScene extends Phaser.Scene {
         this.gameContainer.setVisible(false);
         this.setupGameUI();
 
-        // Dodajemy postać w lewym dolnym rogu
-        // 100, 500 to współrzędne (x, y). Możesz je skorygować.
-        this.einstein = this.add.image(120, 480, 'einstein');
-        this.einstein.setScale(0.2); // Zmniejszamy go, jeśli jest za duży
-        this.einstein.setDepth(1); // Upewniamy się, że jest nad tłem
-        // Tworzymy grafikę dymku
-        this.einsteinSpeechBubble = this.add.graphics({ fillStyle: { color: 0xffffff } });
-        this.einsteinSpeechBubble.setDepth(101); // Nad Einsteinem i innymi elementami        
-        const bubbleWidth = 200; // Rysujemy zaokrąglony prostokąt (dymek)
-        const bubbleHeight = 80;
-        const bubbleX = this.einstein.x - 50;  // Obok Einsteina
-        const bubbleY = this.einstein.y - 200; // Nad głową Einsteina
-        const cornerRadius = 15; // Zaokrąglenie rogów dymku
-        this.einsteinSpeechBubble.fillRoundedRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, cornerRadius);
-        // Mały "ogonek" dymku (trójkąt)
-        const pointerX = bubbleX + 20;
-        const pointerY = bubbleY + bubbleHeight;
-        this.einsteinSpeechBubble.fillTriangle(pointerX, pointerY, pointerX + 20, pointerY + 20, pointerX + 40, pointerY);
-        // Tworzymy tekst wewnątrz dymku
-        this.einsteinSpeechText = this.add.text(bubbleX + bubbleWidth / 2, bubbleY + bubbleHeight / 2, 'Witaj, mistrzu!', {
-            fontSize: '18px',
-            color: '#000000',
-            wordWrap: { width: bubbleWidth - 20 } // Ograniczamy szerokość tekstu, żeby zmieścił się w dymku
-        }).setOrigin(0.5);
-        this.einsteinSpeechText.setDepth(102); // Nad dymkiem
-        // Na początku dymek jest niewidoczny
-        this.einsteinSpeechBubble.setVisible(false);
-        this.einsteinSpeechText.setVisible(false);
-
-        // Zapamiętajmy go, żeby móc nim poruszać przy dobrej odpowiedzi
-        // this.einstein = einstein;
+        this.einstein = new Einstein(this);
         
         this.setupModeDropdown();
     
     }
 
     setupModeDropdown() {
-    const x = 720; // Pozycja X (prawy górny róg)
+    const x = 700; // Pozycja X (prawy górny róg)
     const y = 40;
-    const width = 140;
+    const width = 150;
     const height = 40;
 
     this.dropdownContainer = this.add.container(x, y);
@@ -261,7 +231,7 @@ export class MathScene extends Phaser.Scene {
             mainText.setText(`Tryb: ${opcja.toUpperCase()}`);
             optionsGroup.setVisible(false);
             this.isDropdownOpen = false;
-            this.showEinsteinSpeech(`Wybrałeś tryb ${opcja}!`, 2000);
+            this.einstein.say(`Wybrałeś tryb ${opcja}!`);
         });
 
         optionsGroup.add(optContainer);
@@ -369,84 +339,73 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     const inputElement = document.createElement('input');
     inputElement.type = 'number';
 
-    // 2. Nakładamy Twoje style 3D
+    // 2. Nakładamy style 3D
     Object.assign(inputElement.style, {
         fontSize: '40px',
         padding: '10px',
         width: '180px',
         textAlign: 'center',
         borderRadius: '20px',
-        border: '5px solid #3498db',
+        border: '5px solid #1976b4',
         backgroundColor: '#ecf0f1',
-        boxShadow: '0px 10px 0px #2980b9',
+        //  boxShadow: '0px 10px 0px #2980b9',
         color: '#2c3e50',
         outline: 'none',
         display: 'none' // Ukryty na start
     });
 
     // 3. Wrzucamy go do Phasera i przypisujemy do obu zmiennych
-    this.phaserInputObject = this.add.dom(400, 350, inputElement);
+    this.phaserInputObject = this.add.dom(600, 320, inputElement);
     this.htmlInput = inputElement; 
     this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
     this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
 
+            // 1. Przycisk POWRÓT
+            const backButton = new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, () => {
+                window.location.reload();
+            });
+            this.backButton = backButton; // Przechowujemy referencję, żeby móc nim zarządzać później (np. ukrywać w trybie start)
+            this.backButton.setVisible(false); // Ukrywamy przycisk POWRÓT do momentu startu gry
 
-    // 4. Przycisk POWRÓT (Pozostaje bez zmian, jest OK)
-    const backContainer = this.add.container(720, 40);
-    const backBg = this.add.graphics();
-    backBg.fillStyle(0xe74c3c, 1);
-    backBg.fillRoundedRect(-60, -20, 120, 40, 10);
-    backBg.lineStyle(2, 0xffffff, 1);
-    backBg.strokeRoundedRect(-60, -20, 120, 40, 10);
+            // 2. Przycisk HINT
+            const mixerBtn = new GameButton(this, 550, 40, 'NORMAL', 0x2ecc71, () => {
+                this.hintMode = !this.hintMode;
+                
+                if (this.hintMode) {
+                    mixerBtn.updateText('Psssst');
+                    this.einstein.say("Pssst, w trybach start i nauka będą podpowiedzi!", 4000);
+                } else {
+                    mixerBtn.updateText('NORMAL');
+                    this.einstein.say("Wracamy do normalności!", 2000);
+                }
+            });
+            
 
-    const backTxt = this.add.text(0, 0, 'POWRÓT', {
-        fontSize: '18px',
-        fontStyle: 'bold',
-        color: '#ffffff'
-    }).setOrigin(0.5);
 
-    backContainer.add([backBg, backTxt]);
-    backContainer.setInteractive(new Phaser.Geom.Rectangle(-60, -20, 120, 40), Phaser.Geom.Rectangle.Contains);
-    backContainer.input!.cursor = 'pointer';
 
-    // Interakcje przycisku (Over/Out/Down)
-    backContainer.on('pointerover', () => {
-        this.tweens.add({ targets: backContainer, scale: 1.1, duration: 100 });
-        backBg.clear().fillStyle(0xc0392b, 1).fillRoundedRect(-60, -20, 120, 40, 10).lineStyle(2, 0xffffff, 1).strokeRoundedRect(-60, -20, 120, 40, 10);
-    });
-
-    backContainer.on('pointerout', () => {
-        this.tweens.add({ targets: backContainer, scale: 1.0, duration: 100 });
-        backBg.clear().fillStyle(0xe74c3c, 1).fillRoundedRect(-60, -20, 120, 40, 10).lineStyle(2, 0xffffff, 1).strokeRoundedRect(-60, -20, 120, 40, 10);
-    });
-
-    backContainer.on('pointerdown', () => {
-        this.tweens.add({ targets: backContainer, scale: 0.9, duration: 50, onComplete: () => window.location.reload() });
-    });
-
-    this.gameContainer.add(backContainer);
     this.input.keyboard?.on('keydown-ENTER', () => this.checkAnswer());
 }
 
     startGame() {
         this.menuContainer.setVisible(false);
-        this.dropdownContainer.setVisible(false);
+        this.dropdownContainer.setVisible(true);
         this.gameContainer.setVisible(true);
         this.phaserInputObject.setVisible(true);
+        this.backButton.setVisible(true);
 
         this.score = 0;
         this.scoreText.setText('Punkty: 0');        
         this.focusInput();
 
-        if (this.tryb === 'nauka') {
-          // W nauce najpierw się witamy, a dopiero potem (po 2s) dajemy pierwsze zadanie
-          this.showEinsteinSpeech("Witaj! Zaraz pokażę Ci wynik, spróbuj go zapamiętać!", 2500);
-          this.time.delayedCall(2000, () => {
+        if ((this.tryb === 'nauka' || this.tryb === 'start') && this.hintMode) {
+          // W nauce najpierw się witamy, a dopiero potem (po 2s) dajemy pierwsze zadanie         
+         this.einstein.say("Witaj! Zaraz pokażę Ci wynik, spróbuj go zapamiętać!");
+         this.time.delayedCall(2000, () => {
               this.nextQuestion();
           });
           } else {
               // W pozostałych trybach lecimy od razu
-              this.showEinsteinSpeech("Powodzenia, geniuszu!", 2000);
+              this.einstein.say("Powodzenia, geniuszu!");
               this.nextQuestion();
           }
     }
@@ -454,7 +413,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     nextQuestion() {
             // Generujemy dane zadania za pomocą klasy MathLogic
             //console.log("Generowanie nowego pytania..., tryb: " + this.tryb);
-            const q = MathLogic.generateQuestion(this.currentOperation, this.zakres, this.tryb, this.lastA, this.lastB);
+            const q = MathLogic.generateQuestion(this.currentOperation, this.zakresA, this.zakresB, this.tryb, this.lastA, this.lastB);
             this.lastA = q.newA; // Zapisujemy nową wartość a dla kolejnego pytania
             this.lastB = q.newB; // Zapisujemy nową wartość b dla kolejnego pytania            
             this.currentSolution = q.solution;
@@ -465,7 +424,8 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     if (this.tryb === 'start') {        
         this.htmlInput.disabled = true; //  Blokujemy wpisywanie na samym początku
         this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
-        this.showEinsteinSpeech(`Zapamiętaj to!`, 1500);          
+        if (this.hintMode) {
+        this.einstein.say(`Zapamiętaj to!`);
         this.problemText.setText(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
         // Po 2 sekundach pokazujemy samo pytanie
         this.time.delayedCall(2000, () => {
@@ -477,11 +437,12 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
                 ease: 'Back.out'
             });
         });
-
-        this.time.delayedCall(4000, () => {
+    }
+        const delTime = this.hintMode ? 4000 : 500; // Dłuższy czas, jeśli hint jest włączony
+        this.time.delayedCall(delTime, () => {
             this.problemText.setText(questionText);
             this.htmlInput.disabled = false;
-            this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
+            this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby uczeń mógł pisać
             this.tweens.add({
                 targets: this.problemText,
                 scale: { from: 0.8, to: 1 },
@@ -494,7 +455,8 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         // 2. Blokujemy wpisywanie na samym początku
         this.htmlInput.disabled = true;
         this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
-        this.showEinsteinSpeech(`Zapamiętaj to!`, 1500);          
+        if (this.hintMode) {
+        this.einstein.say(`Zapamiętaj to!`);          
         this.problemText.setText(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
         // Po 2 sekundach pokazujemy samo pytanie
         this.time.delayedCall(2000, () => {
@@ -506,8 +468,9 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
                 ease: 'Back.out'
             });
         });
-
-        this.time.delayedCall(4000, () => {
+    }
+    const delTimeNauka = this.hintMode ? 4000 : 500; // Dłuższy czas, jeśli hint jest włączony
+        this.time.delayedCall(delTimeNauka, () => {
             this.problemText.setText(questionText);
             this.htmlInput.disabled = false;
             this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
@@ -523,7 +486,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         
         this.time.delayedCall(1500, () => {
             this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
-            this.showEinsteinSpeech(`Twór ruch!`, 1500);     
+            this.einstein.say(`Twór ruch!`);     
             this.problemText.setText(questionText);
             this.htmlInput.disabled = false;
             this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
@@ -561,46 +524,27 @@ checkAnswer() {
         this.scoreText.setText(`Punkty: ${this.score}`);
         this.htmlInput.value = ""; // Czyścimy od razu po poprawnej
 
-        // Radosny podskok Einsteina
-        this.tweens.add({
-            targets: this.einstein,
-            scale: 0.22,
-            y: 450,
-            duration: 100,
-            yoyo: true,
-            ease: 'Quad.out'
-        });
+        this.einstein.jump();
 
         // --- LOGIKA KOMUNIKATÓW (DYMEK) ---
         
         if (this.score % 15 === 0 && this.score > 0) {
             // Wielkie świętowanie (priorytet najwyższy)
             const tekst = this.getRandomCongrats();
-            this.showEinsteinSpeech(tekst, 4000);
+            this.einstein.say(tekst, 4000);
             confetti({ particleCount: 200, spread: 100 });
-            this.tweens.add({
-                targets: this.einstein,
-                angle: 360,
-                duration: 500,
-                ease: 'Cubic.easeOut'
-            });
+            this.einstein.spin();
         } 
         else if (this.tryb === 'praktyka') {
             // Specjalny komunikat dla trybu praktyka
             const fullText = this.problemText.text + this.currentSolution;
             this.problemText.setText(fullText); // Pokazujemy pełne równanie z wynikiem
-            this.showEinsteinSpeech(`Świetnie!`, 1000);
+            this.einstein.say(`Świetnie!`);
         } 
         else {
             // Standardowa gratulacja dla pozostałych trybów
-            this.showEinsteinSpeech("Ok! I hop!", 1000);
-            this.tweens.add({
-                targets: this.scoreText,
-                scale: 1.2,
-                duration: 100,
-                yoyo: true,
-                ease: 'Back.out'
-            });
+            this.einstein.say("Ok! I hop!");
+            this.einstein.jump();
         }
 
         // --- PRZEJŚCIE DO KOLEJNEGO PYTANIA ---
@@ -615,7 +559,7 @@ checkAnswer() {
                 this.scoreText.setText(`Punkty: ${this.score}`);
                 this.cameras.main.shake(200, 0.005);
                 const tekst = this.getRandomBledne();
-                this.showEinsteinSpeech(tekst, 2500); 
+                this.einstein.say(tekst); 
             }
         
         this.htmlInput.value = '';
