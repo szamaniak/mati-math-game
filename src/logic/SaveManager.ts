@@ -2,6 +2,7 @@
 
 export interface GameSettings {
     score: number;
+    talary: number;
     zakresA: number;
     zakresB: number;
     lastA: number;  
@@ -21,6 +22,7 @@ export class SaveManager {
 
     private static readonly DEFAULT_SETTINGS = (name: string): GameSettings => ({
         score: 0,
+        talary: 0,
         zakresA: 10,
         zakresB: 10,
         lastA: -1,

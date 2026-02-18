@@ -1,4 +1,8 @@
 // src/logic/MathLogic.ts
+
+// do opracowania logika dostosowywania trudności pytań do postępów gracza;
+// można bazować na szybkości odpowiedzi oraz błędach;
+
 export type Operation = '+' | '-' | '*' | '÷';
 
 export interface Question {

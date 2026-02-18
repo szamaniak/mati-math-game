@@ -11,6 +11,7 @@ export class MathScene extends Phaser.Scene {
 // Stan gry
     private currentUser: string = 'Mati';
     private score: number = 0;
+    private talary: number = 0;
     private zakresA: number = 10;
     private zakresB: number = 10;
     private lastB: number = -1; // -1 na start, żeby przy pierwszym pytaniu nic nie blokowało
@@ -60,6 +61,7 @@ export class MathScene extends Phaser.Scene {
     private dropdownContainer!: Phaser.GameObjects.Container;
     private isDropdownOpen: boolean = false;
     private scoreText!: Phaser.GameObjects.Text;
+    private punktyText!: Phaser.GameObjects.Text;
     private phaserInputObject!: Phaser.GameObjects.DOMElement;
     private backButton!: GameButton;
     private problemText!: Phaser.GameObjects.Text;
@@ -76,6 +78,18 @@ export class MathScene extends Phaser.Scene {
         const index = Phaser.Math.Between(0, this.bledneOdpowiedzi.length - 1);
         return this.bledneOdpowiedzi[index];
         }
+    private displayMessage(msg: string) {
+    // Jeśli tekst jest dłuższy niż np. 10 znaków, zmniejszamy czcionkę i włączamy zawijanie
+    if (msg.length > 10) {
+        this.problemText.setFontSize('42px');
+        this.problemText.setWordWrapWidth(600); // Żeby tekst nie wychodził poza boki
+        } else {
+            this.problemText.setFontSize('110px');
+            this.problemText.setWordWrapWidth(0); // Wyłączamy zawijanie dla działań matematycznych
+        }
+
+        this.problemText.setText(msg);
+    }
 
     constructor() {
         super('MathScene');
@@ -91,6 +105,7 @@ export class MathScene extends Phaser.Scene {
         console.log("MatiMatyk");
         const savedData = SaveManager.load();
         this.score = savedData.score;
+        this.talary = savedData.talary;
         this.zakresA = savedData.zakresA;
         this.zakresB = savedData.zakresB;
         this.lastA = savedData.lastA;
@@ -212,7 +227,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
 }
 
     createMenu() {
-        const title = this.add.text(400, 100, 'MatiMatyk', { 
+        const title = this.add.text(400, 110, 'MatiMatyk', { 
             fontSize: '50px', fontStyle: 'bold', color: '#f0adb4' 
         }).setOrigin(0.5);
 
@@ -282,12 +297,20 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
 }
 
     setupGameUI() {
-    this.scoreText = this.add.text(20, 20, `${this.currentUser}: ${this.score}`, { fontSize: '32px' });
+    this.scoreText = this.add.text(20, 20, `${this.currentUser}: ${this.talary} 🪙`, { fontSize: '24px', 
+        padding: { top: 10, bottom: 10 }
+     });
+
+     this.punktyText = this.add.text(280, 560, `Rozgrywka: ${this.score}`, { fontSize: '20px', 
+        padding: { top: 10, bottom: 10 }
+     }).setOrigin(0.5);
     
     this.problemText = this.add.text(400, 200, '', { 
         fontSize: '110px', 
         fontStyle: 'bold', 
         color: '#ffffff',
+        align: 'center',
+        wordWrap: { width: 700 }, //limit długości tekstu
         shadow: { blur: 10, color: '#000000', fill: true, offsetX: 5, offsetY: 5 }
     }).setOrigin(0.5);
 
@@ -353,7 +376,8 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         this.gameContainer.setVisible(true);
         this.phaserInputObject.setVisible(true);
         this.backButton.setVisible(true);
-        this.scoreText.setText(`${this.currentUser}: ${this.score}`);
+        this.punktyText.setText(`Rozgrywka: ${this.score} / 25`);
+        //this.scoreText.setText(`${this.currentUser}: ${this.score}`);
 
         
         this.focusInput();
@@ -387,10 +411,10 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
         if (this.hintMode) {
         this.einstein.say(`Zapamiętaj to!`);
-        this.problemText.setText(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
+        this.displayMessage(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
         // Po 2 sekundach pokazujemy samo pytanie
         this.time.delayedCall(2000, () => {
-            this.problemText.setText('Uwaga!');
+            this.displayMessage('Uwaga!');
             this.tweens.add({
                 targets: this.problemText,
                 scale: { from: 0.8, to: 1 },
@@ -401,7 +425,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     }
         const delTime = this.hintMode ? 4000 : 500; // Dłuższy czas, jeśli hint jest włączony
         this.time.delayedCall(delTime, () => {
-            this.problemText.setText(questionText);
+            this.displayMessage(questionText);
             this.htmlInput.disabled = false;
             this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby uczeń mógł pisać
             this.tweens.add({
@@ -418,10 +442,10 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
         if (this.hintMode) {
         this.einstein.say(`Zapamiętaj to!`);          
-        this.problemText.setText(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
+        this.displayMessage(fullEquation); // Pokazujemy od razu pełne równanie z wynikiem
         // Po 2 sekundach pokazujemy samo pytanie
         this.time.delayedCall(2000, () => {
-            this.problemText.setText('Uwaga!');
+            this.displayMessage('Uwaga!');
             this.tweens.add({
                 targets: this.problemText,
                 scale: { from: 0.8, to: 1 },
@@ -432,7 +456,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     }
     const delTimeNauka = this.hintMode ? 4000 : 500; // Dłuższy czas, jeśli hint jest włączony
         this.time.delayedCall(delTimeNauka, () => {
-            this.problemText.setText(questionText);
+            this.displayMessage(questionText);
             this.htmlInput.disabled = false;
             this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
             this.tweens.add({
@@ -448,7 +472,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         this.time.delayedCall(1500, () => {
             this.htmlInput.value = ""; // Czyścimy pole, żeby nic tam nie było
             this.einstein.say(`Twór ruch!`);     
-            this.problemText.setText(questionText);
+            this.displayMessage(questionText);
             this.htmlInput.disabled = false;
             this.htmlInput.focus(); // Automatycznie ustawiamy kursor w polu, żeby Mati mógł pisać
             this.tweens.add({
@@ -462,7 +486,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     
     else {
         // Tryb EKSPERT: Pokazujemy od razu pytanie
-        this.problemText.setText(questionText);
+        this.displayMessage(questionText);
         this.tweens.add({
             targets: this.problemText,
             scale: { from: 0.8, to: 1 },
@@ -483,10 +507,18 @@ checkAnswer() {
         // --- LOGIKA SUKCESU ---
         this.score++;
         SaveManager.save({ score: this.score });
-        this.scoreText.setText(`${this.currentUser}: ${this.score}`);
+         this.punktyText.setText(`Rozgrywka: ${this.score} / 25`);
         this.htmlInput.value = ""; // Czyścimy od razu po poprawnej
 
         this.einstein.jump();
+
+        // 1. Sprawdzamy warunek wygranej
+        if (this.score >= 25) {
+            this.endgame(); // Wywołujemy zakończenie
+            return;         // KLUCZ: Kończymy funkcję TUTAJ. Kod poniżej się nie wykona.
+        }
+
+        // 2. Normalny bieg gry (jeśli nie ma jeszcze 25 pkt)
 
         // --- LOGIKA KOMUNIKATÓW (DYMEK) ---
         
@@ -500,7 +532,7 @@ checkAnswer() {
         else if (this.tryb === 'praktyka') {
             // Specjalny komunikat dla trybu praktyka
             const fullText = this.problemText.text + this.currentSolution;
-            this.problemText.setText(fullText); // Pokazujemy pełne równanie z wynikiem
+            this.displayMessage(fullText); // Pokazujemy pełne równanie z wynikiem
             this.einstein.say(`Świetnie!`);
         } 
         else {
@@ -519,7 +551,7 @@ checkAnswer() {
     } else {
                 this.score--;
                     SaveManager.save({ score: this.score });
-                this.scoreText.setText(`${this.currentUser}: ${this.score}`);
+                this.punktyText.setText(`Rozgrywka: ${this.score} / 25`);
                 this.cameras.main.shake(200, 0.005);
                 const tekst = this.getRandomBledne();
                 this.einstein.say(tekst); 
@@ -527,6 +559,30 @@ checkAnswer() {
         
         this.htmlInput.value = '';
         this.focusInput();
+    }
+
+    endgame() {
+        this.htmlInput.style.display = 'none'; // Ukrywamy input
+        this.htmlInput.disabled = true; // Blokujemy input na wszelki wypadek
+        
+        this.einstein.say("Gratuluję wygranej rozgrywki!", 3000);
+        const creditsMap: { [key: string]: number } = {
+        'start': 5,
+        'nauka': 10,
+        'praktyka': 15,
+        'ekspert': 20
+        };
+
+        // Pobieramy wartość na podstawie aktualnego trybu (domyślnie 5, jeśli tryb jest nieznany)
+        
+        const grantValue = creditsMap[this.tryb] || 5;
+        this.talary += grantValue; // Dodajemy kredyty za wygraną
+        this.displayMessage(`Zdobywasz ${grantValue} talarów!`); 
+        this.scoreText.setText(`${this.currentUser}: ${this.talary} 🪙`); // Aktualizujemy wyświetlanie talarów
+        SaveManager.save({ talary: this.talary });
+        this.score = 0; // Resetujemy wynik
+        SaveManager.save({ score: this.score });
+
     }
 
     focusInput() {
