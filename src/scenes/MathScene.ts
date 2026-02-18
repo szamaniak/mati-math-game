@@ -3,11 +3,13 @@ import confetti from 'canvas-confetti';
 import { MathLogic } from '../logic/MathLogic';
 import { Einstein } from '../components/Einstein';
 import { GameButton } from '../components/GameButton';
+import { SaveManager } from '../logic/SaveManager';
 
 type Operation = '+' | '-' | '*' | '÷';
 
 export class MathScene extends Phaser.Scene { 
 // Stan gry
+    private currentUser: string = 'Mati';
     private score: number = 0;
     private zakresA: number = 10;
     private zakresB: number = 10;
@@ -87,15 +89,14 @@ export class MathScene extends Phaser.Scene {
         
         // console.log("GRA URUCHOMIONA - WERSJA 0.0.2");
         console.log("MatiMatyk");
-        const savedZakres = localStorage.getItem('mati_zakresA'); // Pobieramy z pamięci przeglądarki wartość pod kluczem 'mati_zakres'
-          if (savedZakres) {
-              this.zakresA = parseInt(savedZakres); // Jeśli istnieje, ustawiamy naszą zmienną 'zakres' na tę wartość
-          }
-
-        const savedZakresB = localStorage.getItem('mati_zakresB'); // Pobieramy z pamięci przeglądarki wartość pod kluczem 'mati_zakresB'
-          if (savedZakresB) {
-              this.zakresB = parseInt(savedZakresB); // Jeśli istnieje, ustawiamy naszą zmienną 'zakres' na tę wartość
-          }
+        const savedData = SaveManager.load();
+        this.score = savedData.score;
+        this.zakresA = savedData.zakresA;
+        this.zakresB = savedData.zakresB;
+        this.lastA = savedData.lastA;
+        this.lastB = savedData.lastB;
+        this.currentUser = savedData.userName;
+        this.tryb = savedData.tryb || 'praktyka'; // Jeśli tryb jest zapisany, użyj go, w przeciwnym razie domyślny 'praktyka'
 
         // Tło dla całej sceny
         this.add.rectangle(400, 300, 800, 600, 0x1a1a2e);
@@ -105,53 +106,7 @@ export class MathScene extends Phaser.Scene {
         this.createMenu();
 
         // 2. Tworzymy kontenery na ustawienia (w prawym dolnym rogu)
-        const settingsText = this.add.text(600, 520, 'Maks. liczba 1:', { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
-        const rangeInput = document.createElement('input');
-        rangeInput.type = 'number';
-        rangeInput.value = this.zakresA.toString(); // Ustawiamy początkową wartość inputa na aktualny zakres
-        Object.assign(rangeInput.style, {
-            width: '50px',
-            fontSize: '20px',
-            padding: '5px',
-            textAlign: 'center',
-            borderRadius: '5px',
-            border: '2px solid #f0adb4'
-        });        
-        const phaserRangeInput = this.add.dom(650, 520, rangeInput); // Dodajemy input do Phasera        
-        rangeInput.addEventListener('input', () => { // Słuchamy zmian w polu - każda zmiana w inpucie aktualizuje naszą zmienną
-            const val = parseInt(rangeInput.value);
-            if (!isNaN(val) && val > 0) {
-                this.zakresA = val;
-                // Zapisujemy w pamięci przeglądarki pod kluczem 'mati_zakres'
-                localStorage.setItem('mati_zakresA', val.toString());
-            }
-        });
-
-        const settingsText2 = this.add.text(600, 560, 'Maks. liczba 2:', { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
-        const rangeInput2 = document.createElement('input');
-        rangeInput2.type = 'number';
-        rangeInput2.value = this.zakresB.toString(); // Ustawiamy początkową wartość inputa na aktualny zakres
-        Object.assign(rangeInput2.style, {
-            width: '50px',
-            fontSize: '20px',
-            padding: '5px',
-            textAlign: 'center',
-            borderRadius: '5px',
-            border: '2px solid #f0adb4'
-        });        
-        const phaserRangeInput2 = this.add.dom(650, 560, rangeInput2); // Dodajemy input do Phasera        
-        rangeInput2.addEventListener('input', () => { // Słuchamy zmian w polu - każda zmiana w inpucie aktualizuje naszą zmienną
-            const val = parseInt(rangeInput2.value);
-            if (!isNaN(val) && val > 0) {
-                this.zakresB = val;
-                // Zapisujemy w pamięci przeglądarki pod kluczem 'mati_zakres'
-                localStorage.setItem('mati_zakresB', val.toString());
-            }
-        });
-
-        // Dodajemy napisy i input do menuContainer, żeby zniknęły po kliknięciu "Start"
-        this.menuContainer.add([settingsText, phaserRangeInput]);
-        this.menuContainer.add([settingsText2, phaserRangeInput2]);
+       
 
         // animacje
         // Tworzymy kilka losowych symboli w tle
@@ -228,6 +183,7 @@ export class MathScene extends Phaser.Scene {
         optContainer.on('pointerout', () => optBg.setAlpha(1));
         optContainer.on('pointerdown', () => {
             this.tryb = opcja;
+            SaveManager.save({ tryb: this.tryb }); // Zapisujemy wybrany tryb
             mainText.setText(`Tryb: ${opcja.toUpperCase()}`);
             optionsGroup.setVisible(false);
             this.isDropdownOpen = false;
@@ -326,7 +282,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
 }
 
     setupGameUI() {
-    this.scoreText = this.add.text(20, 20, 'Punkty: 0', { fontSize: '32px' });
+    this.scoreText = this.add.text(20, 20, `${this.currentUser}: ${this.score}`, { fontSize: '32px' });
     
     this.problemText = this.add.text(400, 200, '', { 
         fontSize: '110px', 
@@ -360,6 +316,11 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
     this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
 
+            // Przycisk OPCJE
+            new GameButton(this, 380, 40, 'OPCJE', 0x34495e, () => {
+                this.scene.start('SettingsScene'); // Przełącza scenę (zatrzymuje obecną)
+            });
+
             // 1. Przycisk POWRÓT
             const backButton = new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, () => {
                 window.location.reload();
@@ -392,9 +353,9 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         this.gameContainer.setVisible(true);
         this.phaserInputObject.setVisible(true);
         this.backButton.setVisible(true);
+        this.scoreText.setText(`${this.currentUser}: ${this.score}`);
 
-        this.score = 0;
-        this.scoreText.setText('Punkty: 0');        
+        
         this.focusInput();
 
         if ((this.tryb === 'nauka' || this.tryb === 'start') && this.hintMode) {
@@ -521,7 +482,8 @@ checkAnswer() {
     if (val === this.currentSolution) {
         // --- LOGIKA SUKCESU ---
         this.score++;
-        this.scoreText.setText(`Punkty: ${this.score}`);
+        SaveManager.save({ score: this.score });
+        this.scoreText.setText(`${this.currentUser}: ${this.score}`);
         this.htmlInput.value = ""; // Czyścimy od razu po poprawnej
 
         this.einstein.jump();
@@ -556,7 +518,8 @@ checkAnswer() {
 
     } else {
                 this.score--;
-                this.scoreText.setText(`Punkty: ${this.score}`);
+                    SaveManager.save({ score: this.score });
+                this.scoreText.setText(`${this.currentUser}: ${this.score}`);
                 this.cameras.main.shake(200, 0.005);
                 const tekst = this.getRandomBledne();
                 this.einstein.say(tekst); 
