@@ -92,7 +92,7 @@ export class SettingsScene extends Phaser.Scene {
             panelBg.lineBetween(panelX + 40, panelY + 45, panelX + panelWidth - 40, panelY + 45);
         
             // --- USTAWIENIE ZAKRESU A ---
-            const textA = this.add.text(panelX + 20, panelY + 75, 'Zakres liczby A:', { 
+            this.add.text(panelX + 20, panelY + 75, 'Zakres liczby A:', { 
                 fontSize: '20px', 
                 color: '#ffffff' 
             }).setOrigin(0, 0.5);
@@ -109,7 +109,7 @@ export class SettingsScene extends Phaser.Scene {
                 border: '2px solid #2ecc71' // Zielona ramka dla liczby A
             });
 
-            const phaserInputA = this.add.dom(panelX + 260, panelY + 75, inputA);
+            this.add.dom(panelX + 260, panelY + 75, inputA);
 
             inputA.addEventListener('input', () => {
                 const val = parseInt(inputA.value);
@@ -119,7 +119,7 @@ export class SettingsScene extends Phaser.Scene {
             });
 
             // --- USTAWIENIE ZAKRESU B ---
-            const textB = this.add.text(panelX + 20, panelY + 120, 'Zakres liczby B:', { 
+            this.add.text(panelX + 20, panelY + 120, 'Zakres liczby B:', { 
                 fontSize: '20px', 
                 color: '#ffffff' 
             }).setOrigin(0, 0.5);
@@ -136,7 +136,7 @@ export class SettingsScene extends Phaser.Scene {
                 border: '2px solid #3498db' // Niebieska ramka dla liczby B
             });
 
-            const phaserInputB = this.add.dom(panelX + 260, panelY + 120, inputB);
+            this.add.dom(panelX + 260, panelY + 120, inputB);
 
             inputB.addEventListener('input', () => {
                 const val = parseInt(inputB.value);
