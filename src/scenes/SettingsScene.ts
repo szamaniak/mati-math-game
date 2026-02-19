@@ -31,7 +31,7 @@ export class SettingsScene extends Phaser.Scene {
             // Podświetlamy aktualnie zalogowanego gracza innym kolorem (np. fioletowy 0x9b59b6)
             const btnColor = (username === settings.userName) ? 0x9b59b6 : 0x34495e;
             
-            new GameButton(this, xPos, yPos, username, btnColor, () => {
+            new GameButton(this, xPos, yPos, username, btnColor, 3, () => {
                 SaveManager.login(username);
                 this.scene.restart(); // Odświeżamy scenę, by pokazać zmiany
             });
@@ -49,7 +49,7 @@ export class SettingsScene extends Phaser.Scene {
         this.add.dom(100, startYNewPlayer + 40, nameInput);
 
         // Przycisk DODAJ / ZALOGUJ
-        new GameButton(this, 100, startYNewPlayer + 100, 'ZALOGUJ', 0x2ecc71, () => {
+        new GameButton(this, 100, startYNewPlayer + 100, 'ZALOGUJ', 0x2ecc71, 2, () => {
             const newName = nameInput.value.trim();
             if (newName.length > 0) {
                 SaveManager.login(newName);
@@ -149,7 +149,7 @@ export class SettingsScene extends Phaser.Scene {
 
 
         // Dolny przycisk powrotu
-        new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, () => {
+        new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, 2, () => {
             this.scene.start('MathScene');
         });
     }

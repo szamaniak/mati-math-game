@@ -20,6 +20,7 @@ export class MathScene extends Phaser.Scene {
     private maxReward: number = 5; // Maksymalna liczba punktów do zdobycia za jedno pytanie
     private currentSolution: number = 0;
     private currentOperation: Operation = '+';
+    private mixedOperations: boolean = false; // Flaga do trybu mieszanego, gdzie operator jest losowy przy każdym pytaniu
     private gratulacje: string[] = [
     "Genialnie! Jesteś nowym Einsteinem!",
     "Matematyka Cię kocha!",
@@ -155,8 +156,7 @@ export class MathScene extends Phaser.Scene {
         this.gameContainer.setVisible(false);
         this.setupGameUI();
 
-        this.einstein = new Einstein(this);
-        
+        this.einstein = new Einstein(this);        
         this.setupModeDropdown();
     
     }
@@ -178,7 +178,6 @@ export class MathScene extends Phaser.Scene {
         color: '#ffffff',
         fontStyle: 'bold'
     }).setOrigin(0.5);
-
     this.dropdownContainer.add([mainBg, mainText]);
 
     // 2. Grupa opcji (na początku ukryta)
@@ -233,85 +232,46 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
     g.strokeRoundedRect(-w/2, -h/2, w, h, 10);
 }
 
-    createMenu() {
+createMenu() {
         const title = this.add.text(400, 110, 'MatiMatyk', { 
             fontSize: '50px', fontStyle: 'bold', color: '#f0adb4' 
         }).setOrigin(0.5);
 
-        //const subTitle = this.add.text(400, 180, 'Wybierz działanie:', { fontSize: '24px' }).setOrigin(0.5);
-
-        // Tworzymy przyciski używając naszej pomocniczej metody
-        const btnAdd = this.createModeButton(520, 200, 'Dodawanie', '+');
-        const btnSub = this.createModeButton(520, 280, 'Odejmowanie', '-');
-        const btnMul = this.createModeButton(520, 360, 'Mnożenie', '*');
-        const btnDiv = this.createModeButton(520, 440, 'Dzielenie', '÷');
+        // Tworzymy przyciski używając naszej pomocniczej klasy GameButton
+        const btnAdd = new GameButton(this, 520, 200, 'Dodawanie', 0x3498db, 4, () => {
+                        this.currentOperation = '+';
+                        this.startGame();
+                        });
+        const btnSub = new GameButton(this, 520, 280, 'Odejmowanie', 0x3498db, 4, () => {
+                        this.currentOperation = '-';
+                        this.startGame();
+                        });
+        const btnMul = new GameButton(this, 520, 360, 'Mnożenie', 0x3498db, 4, () => {
+                        this.currentOperation = '*';
+                        this.startGame();
+                        });;
+        const btnDiv = new GameButton(this, 520, 440, 'Dzielenie', 0x3498db, 4, () => {
+                        this.currentOperation = '÷';
+                        this.startGame();
+                        });
 
         this.menuContainer.add([title, btnAdd, btnSub, btnMul, btnDiv]);
     }
 
-    createModeButton(x: number, y: number, label: string, op: Operation) {
-    // Kontener dla przycisku, żeby tekst i tło ruszały się razem
-    const container = this.add.container(x, y);
-
-    // Tło przycisku jako zaokrąglony prostokąt
-    const bg = this.add.graphics();
-    bg.fillStyle(0x3498db, 1);
-    bg.fillRoundedRect(-150, -30, 300, 60, 15);
-    bg.lineStyle(4, 0xffffff, 1);
-    bg.strokeRoundedRect(-150, -30, 300, 60, 15);
-
-    const txt = this.add.text(0, 0, label, {
-        fontSize: '28px',
-        fontStyle: 'bold',
-        color: '#ffffff'
-    }).setOrigin(0.5);
-
-    container.add([bg, txt]);
-
-    // Interakcja
-    const hitArea = new Phaser.Geom.Rectangle(-150, -30, 300, 60);
-    container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
-
-    container.on('pointerover', () => {
-        this.tweens.add({
-            targets: container,
-            scale: 1.1,
-            duration: 100,
-            ease: 'Power1'
-        });
-        bg.clear();
-        bg.fillStyle(0x2980b9, 1);
-        bg.fillRoundedRect(-150, -30, 300, 60, 15);
-        bg.lineStyle(4, 0xf1c40f, 1); // Złota obwódka przy najechaniu
-        bg.strokeRoundedRect(-150, -30, 300, 60, 15);
-    });
-
-    container.on('pointerout', () => {
-        this.tweens.add({ targets: container, scale: 1.0, duration: 100 });
-        bg.clear();
-        bg.fillStyle(0x3498db, 1);
-        bg.fillRoundedRect(-150, -30, 300, 60, 15);
-        bg.lineStyle(4, 0xffffff, 1);
-        bg.strokeRoundedRect(-150, -30, 300, 60, 15);
-    });
-
-    container.on('pointerdown', () => {
-        this.currentOperation = op;
-        this.startGame();
-    });
-
-    return container;
-}
+  
 
     setupGameUI() {
+    // Tworzymy elementy UI, które będą widoczne podczas gry (wynik, pytanie, input itp.)
+    // Wynik i talary użytkownika
     this.scoreText = this.add.text(20, 20, `${this.currentUser}: ${this.talary} 🪙`, { fontSize: '24px', 
         padding: { top: 10, bottom: 10 }
      });
-
+     // Licznik rozgrywki (na dole ekranu)
      this.punktyText = this.add.text(280, 560, `Rozgrywka: ${this.score}`, { fontSize: '20px', 
         padding: { top: 10, bottom: 10 }
      }).setOrigin(0.5);
     
+     // Tekst z działaniem matematycznym
     this.problemText = this.add.text(400, 200, '', { 
         fontSize: '110px', 
         fontStyle: 'bold', 
@@ -321,58 +281,61 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
         shadow: { blur: 10, color: '#000000', fill: true, offsetX: 5, offsetY: 5 }
     }).setOrigin(0.5);
 
-    // 1. Tworzymy czysty element HTML
+    // Element DOM (input) dla wprowadzenia wyniku
     const inputElement = document.createElement('input');
-    inputElement.type = 'number';
+    inputElement.type = 'number';   
+            Object.assign(inputElement.style, {
+                fontSize: '40px',
+                padding: '10px',
+                width: '180px',
+                textAlign: 'center',
+                borderRadius: '20px',
+                border: '5px solid #1976b4',
+                backgroundColor: '#ecf0f1',
+                //  boxShadow: '0px 10px 0px #2980b9',
+                color: '#2c3e50',
+                outline: 'none',
+                display: 'none' // Ukryty na start
+            });
+            // Wrzucamy Input do Phasera i przypisujemy do obu zmiennych
+            this.phaserInputObject = this.add.dom(600, 320, inputElement);
+            this.htmlInput = inputElement; 
+            this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
+            this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
 
-    // 2. Nakładamy style 3D
-    Object.assign(inputElement.style, {
-        fontSize: '40px',
-        padding: '10px',
-        width: '180px',
-        textAlign: 'center',
-        borderRadius: '20px',
-        border: '5px solid #1976b4',
-        backgroundColor: '#ecf0f1',
-        //  boxShadow: '0px 10px 0px #2980b9',
-        color: '#2c3e50',
-        outline: 'none',
-        display: 'none' // Ukryty na start
+    // Przycisk OPCJE
+    new GameButton(this, 360, 40, 'OPCJE', 0x34495e, 2, () => {
+        this.scene.start('SettingsScene'); // Przełącza scenę (zatrzymuje obecną)
     });
 
-    // 3. Wrzucamy go do Phasera i przypisujemy do obu zmiennych
-    this.phaserInputObject = this.add.dom(600, 320, inputElement);
-    this.htmlInput = inputElement; 
-    this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
-    this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
+    // Przycisk MIESZANY
+    new GameButton(this, 460, 40, '?', 0x2ecc71, 1, () => {
+            this.mixedOperations = !this.mixedOperations;
+            if (this.mixedOperations) {
+            this.einstein.say("Tryb mieszany aktywowany! Każde pytanie może być innym działaniem!", 4000);
+            this.startGame();}  });      
 
-            // Przycisk OPCJE
-            new GameButton(this, 380, 40, 'OPCJE', 0x34495e, () => {
-                this.scene.start('SettingsScene'); // Przełącza scenę (zatrzymuje obecną)
-            });
+    // Przycisk POWRÓT
+    const backButton = new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, 2, () => {
+        window.location.reload();
+    });
+    this.backButton = backButton; // Przechowujemy referencję, żeby móc nim zarządzać później (np. ukrywać w trybie start)
+    this.backButton.setVisible(false); // Ukrywamy przycisk POWRÓT do momentu startu gry
 
-            // 1. Przycisk POWRÓT
-            const backButton = new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, () => {
-                window.location.reload();
-            });
-            this.backButton = backButton; // Przechowujemy referencję, żeby móc nim zarządzać później (np. ukrywać w trybie start)
-            this.backButton.setVisible(false); // Ukrywamy przycisk POWRÓT do momentu startu gry
-
-            // 2. Przycisk HINT
-            const mixerBtn = new GameButton(this, 550, 40, 'NORMAL', 0x2ecc71, () => {
-                this.hintMode = !this.hintMode;
-                
-                if (this.hintMode) {
-                    mixerBtn.updateText('Psssst');
-                    this.einstein.say("Pssst, w trybach start i nauka będą podpowiedzi!", 4000);
-                } else {
-                    mixerBtn.updateText('NORMAL');
-                    this.einstein.say("Wracamy do normalności!", 2000);
-                }
-            });
-            
+    // Przycisk HINT
+    const mixerBtn = new GameButton(this, 550, 40, 'NORMAL', 0x2ecc71, 2, () => {
+        this.hintMode = !this.hintMode;
+        
+        if (this.hintMode) {
+            mixerBtn.updateText('Psssst');
+            this.einstein.say("Pssst, w trybach start i nauka będą podpowiedzi!", 4000);
+        } else {
+            mixerBtn.updateText('NORMAL');
+            this.einstein.say("Wracamy do normalności!", 2000);
+        }
+    });         
    
-
+    // Obsługa klawisza Enter do zatwierdzania odpowiedzi
     this.input.keyboard?.on('keydown-ENTER', () => this.checkAnswer());
 }
 
@@ -405,6 +368,9 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
             // Generujemy dane zadania za pomocą klasy MathLogic
             //console.log("Generowanie nowego pytania..., tryb: " + this.tryb);
             if (this.questionTimer) this.questionTimer.destroy(); // Usuwamy poprzedni timer, jeśli istnieje
+            if (this.mixedOperations) {
+             this.currentOperation = ['+', '-', '*', '÷'][MathLogic.getRandomInt(0, 3)] as Operation; // Losowy operator do mieszania
+            }
             
             const q = MathLogic.generateQuestion(this.currentOperation, this.zakresA, this.zakresB, this.tryb, this.lastA, this.lastB);
             this.lastA = q.newA; // Zapisujemy nową wartość a dla kolejnego pytania

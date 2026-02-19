@@ -3,7 +3,7 @@
 // do opracowania logika dostosowywania trudności pytań do postępów gracza;
 // można bazować na szybkości odpowiedzi oraz błędach;
 
-export type Operation = '+' | '-' | '*' | '÷';
+export type Operation = '+' | '-' | '*' | '÷' ; 
 
 export interface Question {
     questionText: string;
@@ -47,7 +47,7 @@ export class MathLogic {
         return this.formatQuestion(operation, a, b);
     }
 
-    private static getRandomInt(min: number, max: number): number {
+    static getRandomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
@@ -69,6 +69,7 @@ export class MathLogic {
     private static formatQuestion(operation: Operation, a: number, b: number): Question {
         let questionText = "";
         let solution = 0;
+                
 
         switch (operation) {
             case '+':
