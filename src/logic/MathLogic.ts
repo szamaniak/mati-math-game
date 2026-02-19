@@ -47,12 +47,20 @@ export class MathLogic {
         return this.formatQuestion(operation, a, b);
     }
 
+    private static getRandomInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
     private static generateRandom(operation: Operation, zakresA: number, zakresB: number, lastB: number): Question {
-        let a = Phaser.Math.Between(2, zakresA);
+        let a = this.getRandomInt(2, zakresA);
         let b: number;
+        if (lastB > 4 || zakresB <= 5) { // Jeśli ostatnie b było większe niż 4 lub zakres jest mały, pozwól na pełną losowość
         do {
-            b = Phaser.Math.Between(1, zakresB); // Zmienione na 1-10 dla pełnej tabliczki
+            b = this.getRandomInt(1, zakresB); 
         } while (b === lastB);
+        } else {
+            b = this.getRandomInt(5, zakresB); // Dla większej trudności, jeśli ostatnie b było małe, generuj większe b
+        }
 
         return this.formatQuestion(operation, a, b);
     }

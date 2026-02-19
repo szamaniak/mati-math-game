@@ -10,12 +10,14 @@ type Operation = '+' | '-' | '*' | '÷';
 export class MathScene extends Phaser.Scene { 
 // Stan gry
     private currentUser: string = 'Mati';
+    private startTime: number = 0;  
     private score: number = 0;
     private talary: number = 0;
     private zakresA: number = 10;
     private zakresB: number = 10;
     private lastB: number = -1; // -1 na start, żeby przy pierwszym pytaniu nic nie blokowało
     private lastA: number = -1; // Dodajemy też lastA, żeby mieć pełną kontrolę nad generowanymi pytaniami
+    private maxReward: number = 5; // Maksymalna liczba punktów do zdobycia za jedno pytanie
     private currentSolution: number = 0;
     private currentOperation: Operation = '+';
     private gratulacje: string[] = [
@@ -62,6 +64,7 @@ export class MathScene extends Phaser.Scene {
     private isDropdownOpen: boolean = false;
     private scoreText!: Phaser.GameObjects.Text;
     private punktyText!: Phaser.GameObjects.Text;
+    private questionTimer!: Phaser.Time.TimerEvent;
     private phaserInputObject!: Phaser.GameObjects.DOMElement;
     private backButton!: GameButton;
     private problemText!: Phaser.GameObjects.Text;
@@ -69,6 +72,10 @@ export class MathScene extends Phaser.Scene {
     private einstein!: Einstein;    
     private menuContainer!: Phaser.GameObjects.Container;
     private gameContainer!: Phaser.GameObjects.Container;
+
+    private updateTimerDisplay(remaining: number) {
+    this.punktyText.setText(`Rozgrywka: ${this.score} (+ ${remaining}) / 25`);
+    }
 
     private getRandomCongrats(): string {
         const index = Phaser.Math.Between(0, this.gratulacje.length - 1);
@@ -364,8 +371,7 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
                 }
             });
             
-
-
+   
 
     this.input.keyboard?.on('keydown-ENTER', () => this.checkAnswer());
 }
@@ -395,15 +401,38 @@ drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: num
           }
     }
 
-    nextQuestion() {
+    nextQuestion() {        
             // Generujemy dane zadania za pomocą klasy MathLogic
             //console.log("Generowanie nowego pytania..., tryb: " + this.tryb);
+            if (this.questionTimer) this.questionTimer.destroy(); // Usuwamy poprzedni timer, jeśli istnieje
+            
             const q = MathLogic.generateQuestion(this.currentOperation, this.zakresA, this.zakresB, this.tryb, this.lastA, this.lastB);
             this.lastA = q.newA; // Zapisujemy nową wartość a dla kolejnego pytania
             this.lastB = q.newB; // Zapisujemy nową wartość b dla kolejnego pytania            
             this.currentSolution = q.solution;
             const questionText = q.questionText;
             const fullEquation = q.fullEquation;
+
+            const valueMap: { [key: string]: number } = {
+            'start': 1,
+            'nauka': 2,
+            'praktyka': 3,
+            'ekspert': 4
+            };     // Pobieramy wartość na podstawie aktualnego trybu (domyślnie 5, jeśli tryb jest nieznany)            
+             this.maxReward = valueMap[this.tryb] || 5;
+             this.questionTimer = this.time.addEvent({
+                delay: 1000,
+                callback: () => {
+                    if (this.maxReward > 1) { // Minimalna nagroda to 5 talarów
+                        this.maxReward--;
+                        this.updateTimerDisplay(this.maxReward); 
+                    }
+                    },
+                callbackScope: this,
+                loop: true
+            });
+            this.updateTimerDisplay(this.maxReward);
+            this.startTime = this.time.now; // startrujemy niezależny licznik czasu dla tego pytania
 
     // --- LOGIKA TRYBÓW ---
     if (this.tryb === 'start') {        
@@ -505,7 +534,8 @@ checkAnswer() {
 
     if (val === this.currentSolution) {
         // --- LOGIKA SUKCESU ---
-        this.score++;
+        if (this.questionTimer) this.questionTimer.destroy(); // Usuwamy poprzedni timer, jeśli istnieje
+        this.score+= this.maxReward; // Dodajemy punkty w zależności od trybu i czasu
         SaveManager.save({ score: this.score });
          this.punktyText.setText(`Rozgrywka: ${this.score} / 25`);
         this.htmlInput.value = ""; // Czyścimy od razu po poprawnej
@@ -533,11 +563,21 @@ checkAnswer() {
             // Specjalny komunikat dla trybu praktyka
             const fullText = this.problemText.text + this.currentSolution;
             this.displayMessage(fullText); // Pokazujemy pełne równanie z wynikiem
+            if (this.time.now - this.startTime > 10000) {
+                this.einstein.say("Prawie zasnąłem, to trwało wieki!");
+            }
+            else {
             this.einstein.say(`Świetnie!`);
+            }
         } 
         else {
             // Standardowa gratulacja dla pozostałych trybów
-            this.einstein.say("Ok! I hop!");
+            if (this.time.now - this.startTime > 10000) {
+                this.einstein.say("Prawie zasnąłem, to trwało wieki!");
+            }
+            else {
+            this.einstein.say(`Świetnie!`);
+            }
             this.einstein.jump();
         }
 
@@ -564,8 +604,12 @@ checkAnswer() {
     endgame() {
         this.htmlInput.style.display = 'none'; // Ukrywamy input
         this.htmlInput.disabled = true; // Blokujemy input na wszelki wypadek
+        this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement, żeby nie było żadnych interakcji
+        const tekst = this.getRandomCongrats();
+            this.einstein.say(tekst, 4000);
+            confetti({ particleCount: 200, spread: 100 });
+            this.einstein.spin();
         
-        this.einstein.say("Gratuluję wygranej rozgrywki!", 3000);
         const creditsMap: { [key: string]: number } = {
         'start': 5,
         'nauka': 10,
