@@ -1,0 +1,23 @@
+MatiMatyk to-do list
+Stan gracza:
+1. talary
+2. talenty
+3. energia
+
+Talary:
+Zdobywamy w szkole za wykonanie zadań albo poprzez handel / wykonywanie usług
+Wydajemy na jedzenie by zyskać energię lub inne dobra potrzebne do aktywności (np. sprzęt); można zainwestować na giełdzie :)
+Im więcej energii tym sprawniejsze działanie
+Można wykupić ubezpieczenie zdrowotne by w razie zasłabnięcia pojawiła się pomoc (inaczej spory koszt)
+
+Talenty:
+Zdobywamy w szkole za wykonanie zadań (stopniowanie za poziom trudności)
+Nieobecność w szkole przez dzień = -1 talent 
+Ułatwiają / umożliwiają wykonywanie aktywności (dzięki nim szybciej wykonujemy prace)
+
+Energia:
+Zdbywamy dzięki pożywieniu i napojeniu
+Tracimy cały czas w zależności od warunków i aktywności 
+- funkcje życiowe zużywają stopniowo (podczas snu mniej)
+- warunki pogodowe - więcej gdy jest zimno i pada
+- aktywność fizyczna - stopniowanie (nauka także więcej)

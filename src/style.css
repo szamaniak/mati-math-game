@@ -94,3 +94,19 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+#game-container input {
+    width: 250px;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border: 2px solid #34495e;
+    border-radius: 8px;
+    font-size: 18px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.9);
+    transition: border-color 0.3s;
+}
+
+#game-container input:focus {
+    border-color: #f1c40f; /* Kolor złoty jak przyciski */
+    box-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+}

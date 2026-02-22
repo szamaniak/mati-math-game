@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
+    "firebase": "^12.9.0",
     "phaser": "^3.90.0"
   }
 }

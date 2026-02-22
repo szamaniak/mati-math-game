@@ -1,26 +1,24 @@
-// src/logic/SaveManager.ts
+import { doc, setDoc } from "firebase/firestore";
+import { db, auth } from "../config/firebaseConfig";
 
 export interface GameSettings {
-    score: number;
+    IQ: number;
+    score: number;    
     talary: number;
     zakresA: number;
     zakresB: number;
     lastA: number;  
     lastB: number;
     userName: string;
-    tryb: string; // Dodajemy opcjonalne pole tryb
-}
-
-// Struktura przechowująca wielu użytkowników
-interface AllUsersData {
-    currentUser: string | null;
-    users: { [username: string]: GameSettings };
+    email?: string; // opcjonalne pole na email (przydatne do migracji z nicków)
+    tryb: string;
 }
 
 export class SaveManager {
-    private static readonly SAVE_KEY = 'math_game_multi_storage';
+    private static readonly SAVE_KEY = 'math_game_data_v2'; // Zmieniamy klucz dla nowej struktury
 
     private static readonly DEFAULT_SETTINGS = (name: string): GameSettings => ({
+        IQ: 0,
         score: 0,
         talary: 0,
         zakresA: 10,
@@ -28,71 +26,39 @@ export class SaveManager {
         lastA: -1,
         lastB: -1,
         userName: name,
-        tryb: 'praktyka' // Domyślny tryb
+        tryb: 'praktyka'
     });
 
-    // Pomocnicza metoda do pobrania całej bazy z localStorage
-    private static getAllData(): AllUsersData {
-        const data = localStorage.getItem(this.SAVE_KEY);
-        if (!data) return { currentUser: null, users: {} };
-        try {
-            return JSON.parse(data);
-        } catch {
-            return { currentUser: null, users: {} };
-        }
-    }
-
-    // Logowanie / Przełączanie użytkownika
-    static login(username: string) {
-        const data = this.getAllData();
-        data.currentUser = username;
-        
-        // Jeśli użytkownik nie istnieje, stwórz go
-        if (!data.users[username]) {
-            data.users[username] = this.DEFAULT_SETTINGS(username);
-        }
-        
-        localStorage.setItem(this.SAVE_KEY, JSON.stringify(data));
-    }
-
-    static getAvailableUsers(): string[] {
-    const data = this.getAllData();
-    return Object.keys(data.users);
-    }
-
-    // Wczytuje dane AKTUALNEGO użytkownika
+    // Wczytuje dane z localStorage (bez podziału na wielu userów - Firebase zajmie się izolacją)
     static load(): GameSettings {
-        const data = this.getAllData();
-        const current = data.currentUser;
-        
-        if (current && data.users[current]) {
-            return data.users[current];
+        const data = localStorage.getItem(this.SAVE_KEY);
+        if (!data) return this.DEFAULT_SETTINGS('Gość');
+        return JSON.parse(data);
+    }
+
+    // Zapisuje lokalnie i próbuje wysłać do Firebase
+    static async save(update: Partial<GameSettings>) {
+        // 1. Aktualizacja lokalna
+        const currentData = this.load();
+        const updatedData = { ...currentData, ...update };
+        localStorage.setItem(this.SAVE_KEY, JSON.stringify(updatedData));
+
+        // 2. Aktualizacja w Firebase (jeśli użytkownik jest zalogowany)
+        const user = auth.currentUser;
+        if (user) {
+            try {
+                const userRef = doc(db, "users", user.uid);
+                // Używamy { merge: true }, aby nie nadpisać wszystkiego, jeśli nie trzeba
+                await setDoc(userRef, updatedData, { merge: true });
+                console.log("☁️ Postęp zapisany w chmurze");
+            } catch (error) {
+                console.warn("⚠️ Brak synchronizacji z chmurą (działa tryb offline)");
+            }
         }
-        // Jeśli nikt nie jest zalogowany, zwróć profil Gościa
-        return this.DEFAULT_SETTINGS('Gość');
     }
 
-    // Zapisuje postęp aktualnego użytkownika
-    static save(update: Partial<GameSettings>) {
-        const data = this.getAllData();
-        const current = data.currentUser;
-        
-        if (!current) return; // Nie zapisuj, jeśli nikt nie jest zalogowany
-
-        data.users[current] = { ...data.users[current], ...update };
+    // Specjalna metoda do nadpisania całego zapisu (używana przy logowaniu/synchronizacji)
+    static forceOverwrite(data: GameSettings) {
         localStorage.setItem(this.SAVE_KEY, JSON.stringify(data));
-    }
-
-    // Przygotowanie danych do wysyłki do Firebase
-    static getPayloadForFirebase() {
-        const data = this.getAllData();
-        const current = data.currentUser;
-        if (!current) return null;
-
-        return {
-            userId: current.toLowerCase().trim(), // Prosty ID
-            timestamp: Date.now(),
-            data: data.users[current]
-        };
     }
 }

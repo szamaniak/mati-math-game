@@ -5,14 +5,20 @@ import { Einstein } from '../components/Einstein';
 import { GameButton } from '../components/GameButton';
 import { SaveManager } from '../logic/SaveManager';
 
+import { auth } from '../config/firebaseConfig';
+import { AuthManager } from '../managers/AuthManager';
+
+
 type Operation = '+' | '-' | '*' | '÷';
 
 export class MathScene extends Phaser.Scene { 
 // Stan gry
-    private currentUser: string = 'Mati';
+    private currentUser: string = 'Gość'; // Domyślna nazwa użytkownika, zostanie nadpisana po wczytaniu zapisu
+    //private userId: string | null = null;
     private startTime: number = 0;  
     private score: number = 0;
     private talary: number = 0;
+    private talenty: number = 0;
     private zakresA: number = 10;
     private zakresB: number = 10;
     private lastB: number = -1; // -1 na start, żeby przy pierwszym pytaniu nic nie blokowało
@@ -73,6 +79,7 @@ export class MathScene extends Phaser.Scene {
     private einstein!: Einstein;    
     private menuContainer!: Phaser.GameObjects.Container;
     private gameContainer!: Phaser.GameObjects.Container;
+    private infoPanel!: Phaser.GameObjects.Container;
 
     private updateTimerDisplay(remaining: number) {
     this.punktyText.setText(`Rozgrywka: ${this.score} (+ ${remaining}) / 25`);
@@ -107,18 +114,29 @@ export class MathScene extends Phaser.Scene {
     this.load.image('einstein', 'assets/einstein.png');
     }
 
-    create() {
+    create() {        
         
-        // console.log("GRA URUCHOMIONA - WERSJA 0.0.2");
-        console.log("MatiMatyk");
+        console.log("MatiMatyk - gra uruchomiona");
+        const user = auth.currentUser;
+        
+        if (user) {
+            //this.userId = user.uid;
+            // Jeśli to konto Google, używamy displayName, jeśli Nick - email/login
+            this.currentUser = user.displayName || user.email?.split('@')[0] || 'Gracz';
+        } else {
+            this.currentUser = 'Gość';
+        }
+
+        // 2. Wczytaj ustawienia (zakresy, talary) przez SaveManager
         const savedData = SaveManager.load();
+        
+        // Synchronizujemy lokalne zmienne sceny z tym, co jest w SaveManagerze (który z kolei synchronizuje z Firebase, jeśli użytkownik jest zalogowany)
         this.score = savedData.score;
         this.talary = savedData.talary;
         this.zakresA = savedData.zakresA;
         this.zakresB = savedData.zakresB;
         this.lastA = savedData.lastA;
         this.lastB = savedData.lastB;
-        this.currentUser = savedData.userName;
         this.tryb = savedData.tryb || 'praktyka'; // Jeśli tryb jest zapisany, użyj go, w przeciwnym razie domyślny 'praktyka'
 
         // Tło dla całej sceny
@@ -127,9 +145,6 @@ export class MathScene extends Phaser.Scene {
         // 1. KONTENER MENU
         this.menuContainer = this.add.container(0, 0);
         this.createMenu();
-
-        // 2. Tworzymy kontenery na ustawienia (w prawym dolnym rogu)
-       
 
         // animacje
         // Tworzymy kilka losowych symboli w tle
@@ -155,81 +170,151 @@ export class MathScene extends Phaser.Scene {
         this.gameContainer = this.add.container(0, 0);
         this.gameContainer.setVisible(false);
         this.setupGameUI();
-
         this.einstein = new Einstein(this);        
         this.setupModeDropdown();
+        this.setupInfoPanel(250, 350);    
+    }
+
+    setupInfoPanel(customWidth: number, customHeight: number) {
+    // 1. Obliczamy marginesy, aby wszystko było wyśrodkowane
+    const offsetX = -customWidth / 2;
+    const offsetY = -customHeight / 2;
+    const screenCenter = { x: 120, y: 300 };
     
+    // 1. Tworzymy kontener
+    this.infoPanel = this.add.container(screenCenter.x, screenCenter.y);
+    this.infoPanel.setDepth(100); // Upewniamy się, że jest nad wszystkim
+    this.infoPanel.setVisible(false); // Domyślnie ukryte
+
+    // 2. Tło panelu (półprzezroczyste)
+    const bg = this.add.graphics();
+    bg.fillStyle(0x2c3e50, 0.95); // Ciemny granat
+    bg.fillRoundedRect(offsetX, offsetY, customWidth, customHeight, 20);
+    bg.lineStyle(4, 0x3498db, 1); // Niebieska ramka
+    bg.strokeRoundedRect(offsetX, offsetY, customWidth, customHeight, 20);
+
+    // 3. Tytuł lub tekst informacji
+    const title = this.add.text(-50, -150, 'Info:', {
+        fontSize: '28px',
+        fontStyle: 'bold',
+        color: '#ffffff'
+    }).setOrigin(0.5);
+
+    const desc = this.add.text(-50, -120, this.currentUser, {
+        fontSize: '20px',
+        color: '#ecf0f1',
+        align: 'center'
+    }).setOrigin(0.5);
+
+    const desc2 = this.add.text(-50, -90, `talary: ${this.talary}`, {
+        fontSize: '16px',
+        color: '#bdc3c7',
+        align: 'center'
+    }).setOrigin(0.5);
+
+    const desc3 = this.add.text(-50, -60, `talenty: ${this.talenty}`, {
+        fontSize: '16px',
+        color: '#bdc3c7',
+        align: 'center'
+    }).setOrigin(0.5);
+
+    // 4. Przycisk ZAMKNIJ wewnątrz panelu
+    const closeBtn = new GameButton(this, 85, -150, 'X', 'danger', 1, () => {
+        this.toggleInfoPanel();
+    });
+
+    const logoutBtn = new GameButton(this, 0, 110, 'Wyloguj', 'dark', 3, async () => {
+        await AuthManager.logout();
+                    localStorage.removeItem('math_game_data_v2'); 
+                    this.scene.start('LoginScene');
+    });
+
+
+        // Dodajemy elementy do kontenera
+        this.infoPanel.add([bg, title, desc, desc2, desc3, closeBtn, logoutBtn]);
+    }
+
+    private toggleInfoPanel() {
+    this.infoPanel.setVisible(!this.infoPanel.visible);    
+    // Opcjonalnie: blokujemy input w grze, gdy panel jest otwarty
+    if (this.htmlInput) {
+        this.htmlInput.disabled = this.infoPanel.visible;
+    }
     }
 
     setupModeDropdown() {
-    const x = 700; // Pozycja X (prawy górny róg)
+    const x = 700;
     const y = 40;
-    const width = 150;
-    const height = 40;
-
-    this.dropdownContainer = this.add.container(x, y);
-
-    // 1. Przycisk główny (pokazujący aktualny tryb)
-    const mainBg = this.add.graphics();
-    this.drawRoundedRect(mainBg, width, height, 0x2ecc71); // Zielony kolor
-    
-    const mainText = this.add.text(0, 0, `Tryb: ${this.tryb.toUpperCase()}`, {
-        fontSize: '16px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-    }).setOrigin(0.5);
-    this.dropdownContainer.add([mainBg, mainText]);
-
-    // 2. Grupa opcji (na początku ukryta)
-    const optionsGroup = this.add.container(0, height + 5);
-    optionsGroup.setVisible(false);
-
     const tryby = ['start', 'nauka', 'praktyka', 'ekspert'];
     
+    // Pobieramy aktualny tryb z ustawień
+    const currentSettings = SaveManager.load();
+    this.tryb = currentSettings.tryb || 'praktyka'; // Domyślnie 'praktyka', jeśli nie ma zapisanego trybu
+
+    // 1. Kontener na całe menu
+    this.dropdownContainer = this.add.container(x, y);
+
+    // 2. Grupa opcji (początkowo ukryta)
+    const optionsGroup = this.add.container(0, 45); // Odstęp pod głównym przyciskiem
+    optionsGroup.setVisible(false);
+
+    // 3. Przycisk GŁÓWNY (używamy GameButton!)
+    const mainBtn = new GameButton(
+        this, 0, 0, 
+        this.tryb.toUpperCase(), 
+        'success', 3, // Rozmiar 3 pasuje do szerokości ok. 130-150px
+        () => {
+            this.isDropdownOpen = !this.isDropdownOpen;
+            optionsGroup.setVisible(this.isDropdownOpen);
+            
+            // Reakcja Einsteina przy otwieraniu
+            if (this.isDropdownOpen) {
+                this.einstein.say("Wybierz poziom trudności!");
+            }
+        }, undefined, () => {
+            this.einstein.say("Kliknij, aby wybrać tryb gry!", 3000);
+        }, () => {  
+            this.einstein.say("", 500); 
+        }
+    );
+
+    // 4. Generowanie przycisków opcji
     tryby.forEach((opcja, index) => {
-        const optContainer = this.add.container(0, index * (height + 2));
-        const optBg = this.add.graphics();
-        this.drawRoundedRect(optBg, width, height, 0x34495e);
+        const optBtn = new GameButton(
+            this, 0, index * 42, // Rozmieszczenie w pionie
+            opcja.toUpperCase(),
+            'dark', 3,
+            () => {
+                // Logika wyboru
+                this.tryb = opcja;
+                SaveManager.save({ tryb: this.tryb });
+                
+                // Aktualizacja przycisku głównego
+                mainBtn.updateText(`TRYB: ${opcja.toUpperCase()}`);
+                
+                // Zamknięcie menu
+                optionsGroup.setVisible(false);
+                this.isDropdownOpen = false;
+                
+                this.einstein.say(`Świetnie! Tryb ${opcja} to dobry wybór.`);
+            },
+            undefined, // brak ikony
+            () => { 
+                switch(opcja) {
+                case 'start': this.einstein.say("Tutaj będą działania po kolei, 5 talarów"); break;
+                case 'nauka': this.einstein.say("Tryb działań matematycznych z możliwą podpowiedzią, 10 talarów"); break;
+                case 'praktyka': this.einstein.say("Po każdym działaniu będzie powtórka, 15 talarów"); break;
+                case 'ekspert': this.einstein.say("Tryb eksperta - żadnych podpowiedzi!, 20 talarów"); break;
+                }
+            }, // pointerover
+            () => { this.einstein.say("", 300); } // pointerout
+        );
         
-        const optText = this.add.text(0, 0, opcja.toUpperCase(), {
-            fontSize: '14px',
-            color: '#ffffff'
-        }).setOrigin(0.5);
-
-        optContainer.add([optBg, optText]);
-        
-        // Interakcja z opcją
-        optContainer.setInteractive(new Phaser.Geom.Rectangle(-width/2, -height/2, width, height), Phaser.Geom.Rectangle.Contains);
-        optContainer.on('pointerover', () => optBg.setAlpha(0.8));
-        optContainer.on('pointerout', () => optBg.setAlpha(1));
-        optContainer.on('pointerdown', () => {
-            this.tryb = opcja;
-            SaveManager.save({ tryb: this.tryb }); // Zapisujemy wybrany tryb
-            mainText.setText(`Tryb: ${opcja.toUpperCase()}`);
-            optionsGroup.setVisible(false);
-            this.isDropdownOpen = false;
-            this.einstein.say(`Wybrałeś tryb ${opcja}!`);
-        });
-
-        optionsGroup.add(optContainer);
+        optionsGroup.add(optBtn);
     });
 
-    this.dropdownContainer.add(optionsGroup);
-
-    // 3. Interakcja z głównym przyciskiem
-    mainBg.setInteractive(new Phaser.Geom.Rectangle(-width/2, -height/2, width, height), Phaser.Geom.Rectangle.Contains);
-    mainBg.on('pointerdown', () => {
-        this.isDropdownOpen = !this.isDropdownOpen;
-        optionsGroup.setVisible(this.isDropdownOpen);
-    });
-}
-
-// Funkcja pomocnicza do rysowania zaokrąglonych prostokątów dla przycisków
-drawRoundedRect(g: Phaser.GameObjects.Graphics, w: number, h: number, color: number) {
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(-w/2, -h/2, w, h, 10);
-    g.lineStyle(2, 0xffffff, 1);
-    g.strokeRoundedRect(-w/2, -h/2, w, h, 10);
+    // Składamy wszystko w całość
+    this.dropdownContainer.add([optionsGroup, mainBtn]);
 }
 
 createMenu() {
@@ -258,12 +343,20 @@ createMenu() {
         this.menuContainer.add([title, btnAdd, btnSub, btnMul, btnDiv]);
     }
 
-  
 
     setupGameUI() {
     // Tworzymy elementy UI, które będą widoczne podczas gry (wynik, pytanie, input itp.)
+    // Przycisk użytkownika (z możliwością wylogowania i zmianą użytkownika)
+    new GameButton(this, 30, 40, '👤', 'dark', 1, async () => {
+        this.toggleInfoPanel();
+    }, undefined, () => {
+        this.einstein.say("Tu możesz sprawdzić swoje osiągnięcia, przelogować się lub zmienić użytkownika!", 3000);
+    }, () => {
+        this.einstein.say("", 300); // Czyścimy tekst po wyjściu z przycisku
+    });
+
     // Wynik i talary użytkownika
-    this.scoreText = this.add.text(20, 20, `${this.currentUser}: ${this.talary} 🪙`, { fontSize: '24px', 
+    this.scoreText = this.add.text(60, 20, `${this.currentUser}: ${this.talary} 🪙`, { fontSize: '24px', 
         padding: { top: 10, bottom: 10 }
      });
      // Licznik rozgrywki (na dole ekranu)
@@ -304,36 +397,48 @@ createMenu() {
             this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
 
     // Przycisk OPCJE
-    new GameButton(this, 360, 40, 'OPCJE', 0x34495e, 2, () => {
+    new GameButton(this, 440, 40, 'OPCJE', 0x34495e, 2, () => {
         this.scene.start('SettingsScene'); // Przełącza scenę (zatrzymuje obecną)
+    }, undefined, () => {;
+        this.einstein.say("Tu możesz zmienić ustawienia i zmienić gracza!", 4000);
+    }, () => {        this.einstein.say("", 300); // Czyścimy tekst po wyjściu z przycisku
     });
 
     // Przycisk MIESZANY
-    new GameButton(this, 460, 40, '?', 0x2ecc71, 1, () => {
+    const btnMixed = new GameButton(this, 530, 40, 'Mix', this.mixedOperations ? 'info' : 'dark', 1, () => {
             this.mixedOperations = !this.mixedOperations;
+            btnMixed.updateTheme(this.mixedOperations ? 'info' : 'dark');
             if (this.mixedOperations) {
             this.einstein.say("Tryb mieszany aktywowany! Każde pytanie może być innym działaniem!", 4000);
-            this.startGame();}  });      
+            this.startGame();}  }, undefined, () => {
+            this.einstein.say("Tu włączasz tryb mieszany!", 3000);
+        }); 
+            
+    // Przycisk HINT
+    const mixerBtn = new GameButton(this, 590, 40, '?', this.hintMode ? 'success' : 'dark', 1, () => {
+        this.hintMode = !this.hintMode;
+        mixerBtn.updateTheme(this.hintMode ? 'success' : 'dark');
+        
+        if (this.hintMode) {            
+            this.einstein.say("Tryb podpowiedzi aktywowany!", 2000);
+            if (this.tryb === 'start' || this.tryb === 'nauka') {
+            this.tryb = 'nauka'; // Automatycznie przełączamy na tryb nauka, bo w innych trybach hinty nie działają
+                SaveManager.save({ tryb: this.tryb }); // Zapisujemy zmianę trybu
+            }
+        } else {
+            
+            this.einstein.say("Wyłączam tryb podpowiedzi!", 2000);
+        }
+    }, undefined, () => {
+        this.einstein.say("Tu włączasz podpowiedzi! W trybach start i nauka pokażą Ci wynik na 2 sekundy!", 5000);
+    });   
 
     // Przycisk POWRÓT
     const backButton = new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, 2, () => {
-        window.location.reload();
+        this.scene.start('MathScene'); // Przełącza scenę (zatrzymuje obecną)
     });
     this.backButton = backButton; // Przechowujemy referencję, żeby móc nim zarządzać później (np. ukrywać w trybie start)
-    this.backButton.setVisible(false); // Ukrywamy przycisk POWRÓT do momentu startu gry
-
-    // Przycisk HINT
-    const mixerBtn = new GameButton(this, 550, 40, 'NORMAL', 0x2ecc71, 2, () => {
-        this.hintMode = !this.hintMode;
-        
-        if (this.hintMode) {
-            mixerBtn.updateText('Psssst');
-            this.einstein.say("Pssst, w trybach start i nauka będą podpowiedzi!", 4000);
-        } else {
-            mixerBtn.updateText('NORMAL');
-            this.einstein.say("Wracamy do normalności!", 2000);
-        }
-    });         
+    this.backButton.setVisible(false); // Ukrywamy przycisk POWRÓT do momentu startu gry      
    
     // Obsługa klawisza Enter do zatwierdzania odpowiedzi
     this.input.keyboard?.on('keydown-ENTER', () => this.checkAnswer());
@@ -347,7 +452,6 @@ createMenu() {
         this.backButton.setVisible(true);
         this.punktyText.setText(`Rozgrywka: ${this.score} / 25`);
         //this.scoreText.setText(`${this.currentUser}: ${this.score}`);
-
         
         this.focusInput();
 
@@ -389,7 +493,7 @@ createMenu() {
              this.questionTimer = this.time.addEvent({
                 delay: 1000,
                 callback: () => {
-                    if (this.maxReward > 1) { // Minimalna nagroda to 5 talarów
+                    if (this.maxReward > 1) { // Minimalna nagroda to 1 punkt, nie schodzimy poniżej tego
                         this.maxReward--;
                         this.updateTimerDisplay(this.maxReward); 
                     }
