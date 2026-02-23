@@ -5,6 +5,8 @@ export interface GameSettings {
     IQ: number;
     score: number;    
     talary: number;
+    talenty: number;
+    fixedA: number;
     zakresA: number;
     zakresB: number;
     lastA: number;  
@@ -21,6 +23,8 @@ export class SaveManager {
         IQ: 0,
         score: 0,
         talary: 0,
+        talenty: 0,
+        fixedA: 0,
         zakresA: 10,
         zakresB: 10,
         lastA: -1,

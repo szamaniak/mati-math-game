@@ -17,6 +17,7 @@ import { LoginScene } from './scenes/LoginScene';
 import { MathScene } from './scenes/MathScene'; // Importujemy Twoją nową klasę
 import { SettingsScene } from './scenes/SettingsScene'; // Importujemy klasę sceny ustawień
 
+
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     width: 800,

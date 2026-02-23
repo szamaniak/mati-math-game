@@ -23,6 +23,7 @@ export class MathScene extends Phaser.Scene {
     private zakresB: number = 10;
     private lastB: number = -1; // -1 na start, żeby przy pierwszym pytaniu nic nie blokowało
     private lastA: number = -1; // Dodajemy też lastA, żeby mieć pełną kontrolę nad generowanymi pytaniami
+    private fixedA: number = 0; // Dodajemy fixedA, które będzie używane w trybie 'start' do generowania pytań z ustalonym a
     private maxReward: number = 5; // Maksymalna liczba punktów do zdobycia za jedno pytanie
     private currentSolution: number = 0;
     private currentOperation: Operation = '+';
@@ -133,6 +134,8 @@ export class MathScene extends Phaser.Scene {
         // Synchronizujemy lokalne zmienne sceny z tym, co jest w SaveManagerze (który z kolei synchronizuje z Firebase, jeśli użytkownik jest zalogowany)
         this.score = savedData.score;
         this.talary = savedData.talary;
+        this.talenty = savedData.talenty;
+        this.fixedA = savedData.fixedA;
         this.zakresA = savedData.zakresA;
         this.zakresB = savedData.zakresB;
         this.lastA = savedData.lastA;
@@ -239,8 +242,8 @@ export class MathScene extends Phaser.Scene {
     // Opcjonalnie: blokujemy input w grze, gdy panel jest otwarty
     if (this.htmlInput) {
         this.htmlInput.disabled = this.infoPanel.visible;
-    }
-    }
+    } 
+    } 
 
     setupModeDropdown() {
     const x = 700;
@@ -301,7 +304,7 @@ export class MathScene extends Phaser.Scene {
             undefined, // brak ikony
             () => { 
                 switch(opcja) {
-                case 'start': this.einstein.say("Tutaj będą działania po kolei, 5 talarów"); break;
+                case 'start': this.einstein.say("Tutaj będą działania po kolei, 5 talarów. Możesz w opcjach ustawić konkretną liczbę!"); break;
                 case 'nauka': this.einstein.say("Tryb działań matematycznych z możliwą podpowiedzią, 10 talarów"); break;
                 case 'praktyka': this.einstein.say("Po każdym działaniu będzie powtórka, 15 talarów"); break;
                 case 'ekspert': this.einstein.say("Tryb eksperta - żadnych podpowiedzi!, 20 talarów"); break;
@@ -476,7 +479,7 @@ createMenu() {
              this.currentOperation = ['+', '-', '*', '÷'][MathLogic.getRandomInt(0, 3)] as Operation; // Losowy operator do mieszania
             }
             
-            const q = MathLogic.generateQuestion(this.currentOperation, this.zakresA, this.zakresB, this.tryb, this.lastA, this.lastB);
+            const q = MathLogic.generateQuestion(this.currentOperation, this.zakresA, this.zakresB, this.tryb, this.lastA, this.lastB, this.fixedA);
             this.lastA = q.newA; // Zapisujemy nową wartość a dla kolejnego pytania
             this.lastB = q.newB; // Zapisujemy nową wartość b dla kolejnego pytania            
             this.currentSolution = q.solution;

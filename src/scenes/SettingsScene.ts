@@ -139,9 +139,32 @@ export class SettingsScene extends Phaser.Scene {
         this.add.text(panelX + panelWidth/2, panelY + 30, `POZIOM TRUDNOŚCI`, {
             fontSize: '22px', fontStyle: 'bold', color: '#2ecc71'
         }).setOrigin(0.5);
+        
+        this.add.text(panelX + panelWidth/2, panelY + 60, `Dla trybu start można ustawić konkretną liczbę A`, {
+            fontSize: '12px', fontStyle: 'bold', color: '#e5e7e4'
+        }).setOrigin(0.5);
+        this.add.text(panelX + panelWidth/2, panelY + 80, `Jeśli ZakresA(Start) = 0 - zadania zaczną się od 2x2`, {
+            fontSize: '11px', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+
+        // --- USTAWIENIE trybu konkretnej liczby A ---
+        this.add.text(panelX + 40, panelY + 120, 'Uczę się liczby:', { fontSize: '18px', color: '#ffffff' }).setOrigin(0, 0.5);
+        const input_fixedA = document.createElement('input');
+        input_fixedA.type = 'number';
+        const fixedAValue = settings.fixedA ? settings.fixedA : 0; // Domyślnie 10, jeśli nie ma ustawionej wartości
+        input_fixedA.value = fixedAValue.toString();
+        Object.assign(input_fixedA.style, {
+            width: '60px', fontSize: '20px', padding: '5px', textAlign: 'center',
+            borderRadius: '5px', border: '2px solid #2ecc71'
+        });
+        this.add.dom(panelX + 300, panelY + 120, input_fixedA);
+        input_fixedA.addEventListener('input', () => {
+            const val = parseInt(input_fixedA.value);
+            if (!isNaN(val) && val > 0) SaveManager.save({ fixedA: val });
+        });
 
         // --- USTAWIENIE ZAKRESU A ---
-        this.add.text(panelX + 40, panelY + 100, 'Zakres A:', { fontSize: '20px', color: '#ffffff' }).setOrigin(0, 0.5);
+        this.add.text(panelX + 40, panelY + 170, 'Zakres A:', { fontSize: '20px', color: '#ffffff' }).setOrigin(0, 0.5);
         const inputA = document.createElement('input');
         inputA.type = 'number';
         inputA.value = settings.zakresA.toString();
@@ -149,14 +172,14 @@ export class SettingsScene extends Phaser.Scene {
             width: '60px', fontSize: '20px', padding: '5px', textAlign: 'center',
             borderRadius: '5px', border: '2px solid #2ecc71'
         });
-        this.add.dom(panelX + 300, panelY + 100, inputA);
+        this.add.dom(panelX + 300, panelY + 170, inputA);
         inputA.addEventListener('input', () => {
             const val = parseInt(inputA.value);
             if (!isNaN(val) && val > 0) SaveManager.save({ zakresA: val });
         });
 
         // --- USTAWIENIE ZAKRESU B ---
-        this.add.text(panelX + 40, panelY + 170, 'Zakres B:', { fontSize: '20px', color: '#ffffff' }).setOrigin(0, 0.5);
+        this.add.text(panelX + 40, panelY + 210, 'Zakres B:', { fontSize: '20px', color: '#ffffff' }).setOrigin(0, 0.5);
         const inputB = document.createElement('input');
         inputB.type = 'number';
         inputB.value = settings.zakresB.toString();
@@ -164,7 +187,7 @@ export class SettingsScene extends Phaser.Scene {
             width: '60px', fontSize: '20px', padding: '5px', textAlign: 'center',
             borderRadius: '5px', border: '2px solid #3498db'
         });
-        this.add.dom(panelX + 300, panelY + 170, inputB);
+        this.add.dom(panelX + 300, panelY + 210, inputB);
         inputB.addEventListener('input', () => {
             const val = parseInt(inputB.value);
             if (!isNaN(val) && val > 0) SaveManager.save({ zakresB: val });

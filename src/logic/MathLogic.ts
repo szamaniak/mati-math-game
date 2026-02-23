@@ -13,39 +13,47 @@ export interface Question {
     newB: number; // Dodajemy opcjonalne pole do przechowywania ostatniej wartości b
 }
 export class MathLogic {
-    static generateQuestion(operation: Operation, zakresA: number, zakresB: number, tryb: string, lastA: number = -1, lastB: number = -1): Question {
+    static generateQuestion(operation: Operation, zakresA: number, zakresB: number, tryb: string, lastA: number = -1, lastB: number = -1, fixedA: number = 0): Question {
         //console.log(`Generowanie pytania. Tryb: ${tryb}, Ostatnie a: ${lastA}, Ostatnie b: ${lastB}`);
         if (tryb === 'start') {
-            return this.generateLinear(operation, zakresA, zakresB, lastA, lastB);
+            return this.generateLinear(operation, zakresA, zakresB, lastA, lastB, fixedA);
         }
         return this.generateRandom(operation, zakresA, zakresB, lastB);
     }
 
-    private static generateLinear(operation: Operation, zakresA: number, zakresB: number, lastA: number, lastB: number): Question {
+    private static generateLinear(operation: Operation, zakresA: number, zakresB: number, lastA: number, lastB: number, fixedA: number = 0): Question {
         let a = lastA;
         let b = lastB;
-
-        // Inicjalizacja przy pierwszym uruchomieniu (jeśli lastA i lastB to -1)
+// 1. Obsługa trybu "Tylko jedna liczba"
+    if (fixedA > 0) {
+        a = fixedA; // Zawsze wymuszamy wybraną liczbę
+        
+        if (b === -1 || b >= zakresB) {
+            b = 1; // Zaczynamy od początku sekwencji (np. 7 * 1)
+        } else {
+            b++; // Kolejny krok (7 * 2, 7 * 3...)
+        }
+    } 
+    // 2. Obsługa trybu standardowego (Twoja dotychczasowa logika)
+    else {
         if (a === -1) a = 2;
-        if (b === -1) b = 0; // Zaczynamy od 0, by po dodaniu 1 wyszło 1
+        if (b === -1) b = 0; // Poprawiłem na 0, żeby pierwszy krok b++ dał 1
 
-        // Logika przesunięcia: zwiększ b o 1
         b++;
 
-        // Jeśli b przekroczy 10, zwiększ a i zresetuj b do 1
         if (b > zakresB) {
             b = 1;
             a++;
         }
 
-        // Jeśli a przekroczy zakres, wróć do początku (pętla nauki)
         if (a > zakresA) {
             a = 2;
             b = 1;
         }
-
-        return this.formatQuestion(operation, a, b);
     }
+
+    return this.formatQuestion(operation, a, b);
+}
 
     static getRandomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
