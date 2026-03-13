@@ -10,6 +10,11 @@
 // można zastąpić elementem talent lub potencjał: za ukończenie modułu +0,1 - powolny wzrost;
 // uwaga! opuszczenie dnia nauki = -1 potencjału (lub IQ) 
 // geometry tasks (drag and drop shapes to form a specific figure)
+
+//Generative AI Gemini - generowanie zadań, rozwiązań, podpowiedzi, a nawet całych lekcji
+//AI tutor: ciekawostki o świecie
+//AI in game: interakcja z postaciami w grze
+
 import './style.css';
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';

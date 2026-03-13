@@ -6,6 +6,8 @@ export class Einstein {
     private text: Phaser.GameObjects.Text;
     private speechEvent?: Phaser.Time.TimerEvent;
 
+    public isTalking: boolean = false;
+
     constructor(scene: Phaser.Scene) {
         this.scene = scene;
         
@@ -33,6 +35,7 @@ export class Einstein {
         const bubbleY = 280;
         const width = 300;
         const height = 100;
+        this.bubble.clear(); // Warto dodać clear przed rysowaniem
         this.bubble.fillRoundedRect(bubbleX, bubbleY, width, height, 15);
         this.bubble.fillTriangle(70, 380, 80, 410, 110, 380);
     }
@@ -41,6 +44,7 @@ export class Einstein {
         if (this.speechEvent) this.speechEvent.remove();
         this.scene.tweens.killTweensOf([this.bubble, this.text]);
 
+        this.isTalking = true; // Zaczyna mówić
         this.text.setText(message);
         this.bubble.setVisible(true).setAlpha(1);
         this.text.setVisible(true).setAlpha(1);
@@ -50,7 +54,10 @@ export class Einstein {
                 targets: [this.bubble, this.text],
                 alpha: 0,
                 duration: 300,
-                onComplete: () => this.hide()
+                onComplete: () => {
+                    this.hide();
+                    this.isTalking = false; // Skończył mówić
+                }
             });
         });
     }
@@ -74,9 +81,27 @@ export class Einstein {
             ease: 'Cubic.easeOut'
         });
     }
+    // --- NOWE METODY NAPRAWIAJĄCE BŁĄD ---
+
+    /** Włącza interaktywność na grafice Einsteina */
+    setInteractive(config?: Phaser.Types.Input.InputConfiguration) {
+        this.sprite.setInteractive(config);
+        return this;
+    }
+
+    /** Pozwala nasłuchiwać na zdarzenia (np. 'pointerdown') bezpośrednio na Einsteinie */
+    on(event: string, fn: Function, context?: any) {
+        this.sprite.on(event, fn, context);
+        return this;
+    }
+
+    /** Gettery pomocne do pozycjonowania Tooltipa w MathScene */
+    get x() { return this.sprite.x; }
+    get y() { return this.sprite.y; }
 
     private hide() {
         this.bubble.setVisible(false);
         this.text.setVisible(false);
+        this.isTalking = false;
     }
 }

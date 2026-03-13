@@ -5,19 +5,19 @@ export interface GameSettings {
     IQ: number;
     score: number;    
     talary: number;
-    talenty: number;
+    talenty: number; // ✨ Nowa waluta za ciekawostki
     fixedA: number;
     zakresA: number;
     zakresB: number;
     lastA: number;  
     lastB: number;
     userName: string;
-    email?: string; // opcjonalne pole na email (przydatne do migracji z nicków)
+    email?: string;
     tryb: string;
 }
 
 export class SaveManager {
-    private static readonly SAVE_KEY = 'math_game_data_v2'; // Zmieniamy klucz dla nowej struktury
+    private static readonly SAVE_KEY = 'math_game_data_v2';
 
     private static readonly DEFAULT_SETTINGS = (name: string): GameSettings => ({
         IQ: 0,
@@ -33,35 +33,44 @@ export class SaveManager {
         tryb: 'praktyka'
     });
 
-    // Wczytuje dane z localStorage (bez podziału na wielu userów - Firebase zajmie się izolacją)
+    /**
+     * Wczytuje dane z localStorage z rzutowaniem na GameSettings
+     */
     static load(): GameSettings {
         const data = localStorage.getItem(this.SAVE_KEY);
         if (!data) return this.DEFAULT_SETTINGS('Gość');
-        return JSON.parse(data);
+        
+        // Używamy as GameSettings, aby zachować bezpieczeństwo typów w reszcie aplikacji
+        return JSON.parse(data) as GameSettings;
     }
 
-    // Zapisuje lokalnie i próbuje wysłać do Firebase
+    /**
+     * Zapisuje zmiany (Partial pozwala wysłać tylko np. { talary: 10 })
+     */
     static async save(update: Partial<GameSettings>) {
-        // 1. Aktualizacja lokalna
         const currentData = this.load();
         const updatedData = { ...currentData, ...update };
+        
+        // 1. Lokalny zapis (natychmiastowy UX)
         localStorage.setItem(this.SAVE_KEY, JSON.stringify(updatedData));
 
-        // 2. Aktualizacja w Firebase (jeśli użytkownik jest zalogowany)
+        // 2. Chmura (asynchronicznie)
         const user = auth.currentUser;
         if (user) {
             try {
                 const userRef = doc(db, "users", user.uid);
-                // Używamy { merge: true }, aby nie nadpisać wszystkiego, jeśli nie trzeba
+                // merge: true jest kluczowe, by nie nadpisać pól, których nie ma w obiekcie updatedData
                 await setDoc(userRef, updatedData, { merge: true });
-                console.log("☁️ Postęp zapisany w chmurze");
+                console.log("☁️ Postęp zsynchronizowany z Firebase");
             } catch (error) {
-                console.warn("⚠️ Brak synchronizacji z chmurą (działa tryb offline)");
+                console.warn("⚠️ Tryb offline: Zapisano tylko lokalnie");
             }
         }
     }
 
-    // Specjalna metoda do nadpisania całego zapisu (używana przy logowaniu/synchronizacji)
+    /**
+     * Nadpisuje cały profil (używane w AuthManager po zalogowaniu)
+     */
     static forceOverwrite(data: GameSettings) {
         localStorage.setItem(this.SAVE_KEY, JSON.stringify(data));
     }

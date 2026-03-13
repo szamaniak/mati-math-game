@@ -4,6 +4,8 @@ import { MathLogic } from '../logic/MathLogic';
 import { Einstein } from '../components/Einstein';
 import { GameButton } from '../components/GameButton';
 import { SaveManager } from '../logic/SaveManager';
+import { AIManager } from '../managers/AIManager';
+import {UIManager} from '../managers/UIManager'
 
 import { auth } from '../config/firebaseConfig';
 import { AuthManager } from '../managers/AuthManager';
@@ -72,6 +74,8 @@ export class MathScene extends Phaser.Scene {
     private isDropdownOpen: boolean = false;
     private scoreText!: Phaser.GameObjects.Text;
     private punktyText!: Phaser.GameObjects.Text;
+    private infoTalentyText!: Phaser.GameObjects.Text;
+    private infoTalaryText!: Phaser.GameObjects.Text;
     private questionTimer!: Phaser.Time.TimerEvent;
     private phaserInputObject!: Phaser.GameObjects.DOMElement;
     private backButton!: GameButton;
@@ -84,6 +88,19 @@ export class MathScene extends Phaser.Scene {
 
     private updateTimerDisplay(remaining: number) {
     this.punktyText.setText(`Rozgrywka: ${this.score} (+ ${remaining}) / 25`);
+    }
+
+    private refreshUI() {
+        // Aktualizacja głównych liczników na ekranie (tych zawsze widocznych)
+        this.scoreText.setText(`${this.currentUser}: ${this.talary} 🪙`);
+        // Jeśli masz talentText na wierzchu:
+        // this.talentText.setText(`Talenty: ${this.talenty} ✨`);
+
+        // Aktualizacja tekstów wewnątrz ukrytego panelu Info
+        if (this.infoTalaryText && this.infoTalentyText) {
+            this.infoTalaryText.setText(`talary: ${this.talary}`);
+            this.infoTalentyText.setText(`talenty: ${this.talenty}`);
+        }
     }
 
     private getRandomCongrats(): string {
@@ -133,8 +150,8 @@ export class MathScene extends Phaser.Scene {
         
         // Synchronizujemy lokalne zmienne sceny z tym, co jest w SaveManagerze (który z kolei synchronizuje z Firebase, jeśli użytkownik jest zalogowany)
         this.score = savedData.score;
-        this.talary = savedData.talary;
-        this.talenty = savedData.talenty;
+        this.talary = savedData.talary || 0;
+        this.talenty = savedData.talenty || 0;
         this.fixedA = savedData.fixedA;
         this.zakresA = savedData.zakresA;
         this.zakresB = savedData.zakresB;
@@ -173,7 +190,60 @@ export class MathScene extends Phaser.Scene {
         this.gameContainer = this.add.container(0, 0);
         this.gameContainer.setVisible(false);
         this.setupGameUI();
-        this.einstein = new Einstein(this);        
+        this.einstein = new Einstein(this);   
+        // 1. Sprawiamy, że Einstein reaguje na mysz
+        this.einstein.setInteractive({ useHandCursor: true });
+
+        /*
+        const hintText = this.add.text(this.einstein.x, this.einstein.y - 120, 
+            'Kliknij mnie, a za pięć talarów opowiem Ci niezwykłą ciekawostkę! 💡', 
+            {
+                fontSize: '14px', 
+                backgroundColor: '#34495e', 
+                padding: { x: 8, y: 8 }, 
+                color: '#ffffff',
+                align: 'center', // Centrowanie tekstu wewnątrz ramki
+                wordWrap: { width: 180 } // Kluczowe: szerokość, po której tekst przejdzie do nowej linii
+            }
+        ).setOrigin(0.5).setAlpha(0).setDepth(200);
+        */
+
+        this.einstein.on('pointerover', () => {
+            if (!this.einstein.isTalking) this.einstein.say('Kliknij mnie, a za pięć talarów opowiem Ci niezwykłą ciekawostkę! 💡', 4000)
+                //this.add.tween({ targets: hintText, alpha: 1, duration: 200 });
+        });
+
+        //this.einstein.on('pointerout', () => {
+          
+            //this.add.tween({ targets: hintText, alpha: 0, duration: 200 });
+        //});
+
+        this.einstein.on('pointerdown', async () => {
+           // if (this.einstein.isTalking) return;
+
+            this.einstein.say("Szukam czegoś specjalnego...", 2000);
+            this.einstein.spin();
+            
+            const result = await AIManager.getEinsteinFact();
+            
+            if (result.success) {
+                // 1. Odśwież dane
+                const settings = SaveManager.load();
+                this.talary = settings.talary;
+                this.talenty = settings.talenty || 0;
+                
+                // 2. Zaktualizuj UI na scenie
+                this.refreshUI();
+                
+                // 3. Wywołaj managera okien (CZYSTO I PORZĄDNIE!)
+                UIManager.showTriviaModal(this, result.message, () => {
+                    this.einstein.jump(); // To się wykona po zamknięciu okna
+                });
+            } else {
+                this.einstein.say(result.message, 4000);
+            }
+        });
+
         this.setupModeDropdown();
         this.setupInfoPanel(250, 350);    
     }
@@ -209,13 +279,13 @@ export class MathScene extends Phaser.Scene {
         align: 'center'
     }).setOrigin(0.5);
 
-    const desc2 = this.add.text(-50, -90, `talary: ${this.talary}`, {
+    this.infoTalaryText = this.add.text(-50, -90, `talary: ${this.talary}`, {
         fontSize: '16px',
         color: '#bdc3c7',
         align: 'center'
     }).setOrigin(0.5);
 
-    const desc3 = this.add.text(-50, -60, `talenty: ${this.talenty}`, {
+    this.infoTalentyText = this.add.text(-50, -60, `talenty: ${this.talenty}`, {
         fontSize: '16px',
         color: '#bdc3c7',
         align: 'center'
@@ -234,7 +304,7 @@ export class MathScene extends Phaser.Scene {
 
 
         // Dodajemy elementy do kontenera
-        this.infoPanel.add([bg, title, desc, desc2, desc3, closeBtn, logoutBtn]);
+        this.infoPanel.add([bg, title, desc, this.infoTalaryText, this.infoTalentyText, closeBtn, logoutBtn]);
     }
 
     private toggleInfoPanel() {

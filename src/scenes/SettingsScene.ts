@@ -115,6 +115,11 @@ export class SettingsScene extends Phaser.Scene {
             fontSize: '22px', color: '#f1c40f', fontStyle: 'bold'
         }).setOrigin(0.5);
 
+        this.add.text(leftX, 450, ` ✨ Zebrane Talenty: ${settings.talenty || 0}`, {
+            fontSize: '22px', fontStyle: 'bold',
+            color: '#f1c40f'
+        }).setOrigin(0.5);
+
         // Przycisk WYLOGUJ
         new GameButton(this, leftX, 520, 'WYLOGUJ', 0xe74c3c, 3, async () => {
             await AuthManager.logout();
