@@ -1,11 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Pobieramy prompt z zapytania od gry
+  // 1. Zabezpieczenie: Przyjmujemy tylko zapytania POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed - użyj POST' });
+  }
+
+  // 2. Pobieramy prompt z body
   const { prompt } = req.body;
   
-  // Klucz jest bezpieczny – Vercel wstrzyknie go tutaj z ustawień (zrobimy to w Kroku 3)
+  // 3. Pobieramy klucz z Env Variables Vercela
   const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Brak klucza API w konfiguracji serwera' });
+  }
 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`, {
@@ -16,9 +25,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      return res.status(response.status).json(errorData);
+    }
+
     const data = await response.json();
+    
+    // 5. Zwracamy odpowiedź prosto do gry
     return res.status(200).json(data);
+
   } catch (error) {
+    console.error('Błąd Proxy:', error);
     return res.status(500).json({ error: 'Błąd bramki API' });
   }
 }

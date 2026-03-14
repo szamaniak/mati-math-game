@@ -37,20 +37,6 @@ export class AIManager {
     private static usedTopics: string[] = [];
     private static readonly PROXY_URL = '/api/chat';
 
-    async getTrivia(topic: string) {
-        // Nie potrzebujemy już klucza w URL!
-        const response = await fetch(AIManager.PROXY_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                prompt: `Jesteś Albertem Einsteinem. Opowiedz dziecku ciekawostkę na temat: ${topic}. Max 2 zdania.` 
-            })
-        });
-
-        const data = await response.json();
-        // Logika wyciągania tekstu zostaje taka sama
-        return data.candidates[0].content.parts[0].text;
-    }
     /**
      * Główna metoda pobierająca ciekawostkę.
      * Zdejmuje 1 talar i dodaje 1 talent przy sukcesie.
@@ -130,7 +116,7 @@ export class AIManager {
             }
         };
 
-        const response = await fetch(`${AIManager.PROXY_URL}?key=${this.API_KEY}`, {
+        const response = await fetch(AIManager.PROXY_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(prompt)
