@@ -1,5 +1,6 @@
 // to-do list:
-// generowanie zagadek: koszt 5 talarów, nagroda 10 talarów: 
+// generowanie zagadek: koszt 15 talarów, nagroda 20 talarów: 
+// możliwość dyskusji / pytania naukowego: 50 talarów
 
 
 import { SaveManager } from "../logic/SaveManager";
@@ -7,21 +8,49 @@ import { SaveManager } from "../logic/SaveManager";
 export class AIManager {
     // Lista 25 obszarów tematycznych dla zachowania różnorodności
     private static readonly TOPICS: string[] = [
-        "Giganty Oceanów", "Sekrety Dinozaurów", "Podróże w Kosmosie", 
-        "Rekordy Zwierząt", "Dziwne Rośliny", "Ciało Człowieka", 
-        "Wynalazki", "Wielkie Budowle", "Pogoda i Zjawiska", 
-        "Życie w Micro-świecie", "Skarby Ziemi", "Zwierzęta Domowe", 
-        "Historia Sportu", "Transport Przyszłości", "Muzyka i Dźwięki", 
-        "Zabawne Prawa Fizyki", "Słynni Odkrywcy", "Eko-Bohaterzy", 
-        "Świat Owadów", "Mitologie Świata", "Jak powstaje czekolada", 
-        "Zjawiska Optyczne", "Głębiny Ziemi", "Języki Świata", "Matematyka w Naturze"
-    ];
+    "Giganty Oceanów", "Sekrety Dinozaurów", "Podróże w Kosmosie", 
+    "Rekordy Zwierząt", "Dziwne Rośliny", "Ciało Człowieka", 
+    "Wynalazki", "Wielkie Budowle", "Pogoda i Zjawiska", 
+    "Życie w Micro-świecie", "Skarby Ziemi", "Zwierzęta Domowe", 
+    "Historia Sportu", "Transport Przyszłości", "Muzyka i Dźwięki", 
+    "Zabawne Prawa Fizyki", "Słynni Odkrywcy", "Eko-Bohaterzy", 
+    "Świat Owadów", "Mitologie Świata", "Jak powstaje czekolada", 
+    "Zjawiska Optyczne", "Głębiny Ziemi", "Języki Świata", "Matematyka w Naturze",
+    "Roboty i Sztuczna Inteligencja", "Sekrety Internetu", "Jak działają Magnesy?",
+    "Energia ze Słońca i Wiatru", "Tajemnice Pieniądza", "Lotnictwo: Dlaczego samolot lata?",
+    "Komputery: Od liczydła do smartfona", "Chemia w Twojej kuchni", "Druk 3D: Budowanie z niczego",
+    "Prąd elektryczny: Skąd się bierze?", "Niesamowite Grzyby", "Dlaczego liście zmieniają kolor?",
+    "Mieszkańcy Pustyni", "Zwierzęta, które świecą w ciemności", "Życie na Rafie Koralowej",
+    "Wielka Wędrówka Ptaków", "Pszczoły i ich supermoce", "Jak drzewa rozmawiają ze sobą?",
+    "Zwierzęta Arktyki i Antarktydy", "Recykling: Drugie życie śmieci", "Życie w Starożytnym Egipcie",
+    "Rycerze i Zamki", "Wikingowie: Morscy wojownicy", "Piramidy Świata", "Siedem Cudów Świata",
+    "Wielki Mur Chiński", "Życie Jaskiniowców", "Wyprawa na Mount Everest", "Legendarni Piraci i ich statki",
+    "Pierwsze Igrzyska Olimpijskie", "Misja na Marsa", "Czarne Dziury", "Księżyc: Nasz kosmiczny sąsiad",
+    "Wulkany: Ogniste góry", "Jak powstaje Diament?", "Trzęsienia Ziemi i Tsunami", "Gwiazdy i Gwiazdozbiory",
+    "Komety: Kosmiczne podróżniczki", "Atmosfera: Tarcza ochronna Ziemi", "Zorza Polarna: Taniec świateł",
+    "Historia Pizzy i Makaronu", "Jak powstaje papier?", "Sekrety Twojego Snu", "Dlaczego niebo jest niebieskie?",
+    "Pismo obrazkowe: Od hieroglifów do Emoji", "Sztuka Kamuflażu", "Najszybsze pociągi świata",
+    "Z czego zrobione jest szkło?", "Historia Gier Wideo", "Dziwne Smaki Świata"
+];
 
     // Pamięć sesji dla tematów, aby nie losować tego samego pod rząd
     private static usedTopics: string[] = [];
-    private static readonly API_KEY = import.meta.env.VITE_AI_GEMINI_BASE_API; 
-    private static readonly MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent";
+    private static readonly PROXY_URL = '/api/chat';
 
+    async getTrivia(topic: string) {
+        // Nie potrzebujemy już klucza w URL!
+        const response = await fetch(AIManager.PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                prompt: `Jesteś Albertem Einsteinem. Opowiedz dziecku ciekawostkę na temat: ${topic}. Max 2 zdania.` 
+            })
+        });
+
+        const data = await response.json();
+        // Logika wyciągania tekstu zostaje taka sama
+        return data.candidates[0].content.parts[0].text;
+    }
     /**
      * Główna metoda pobierająca ciekawostkę.
      * Zdejmuje 1 talar i dodaje 1 talent przy sukcesie.
@@ -101,7 +130,7 @@ export class AIManager {
             }
         };
 
-        const response = await fetch(`${this.MODEL_URL}?key=${this.API_KEY}`, {
+        const response = await fetch(`${AIManager.PROXY_URL}?key=${this.API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(prompt)
