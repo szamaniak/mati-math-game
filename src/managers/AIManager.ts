@@ -97,34 +97,34 @@ export class AIManager {
      * Komunikacja z API Gemini
      */
     private static async fetchFromGemini(topic: string): Promise<string> {
-        const prompt = {
-            contents: [{
-                parts: [{
-                    text: `Jesteś Albertem Einsteinem, radosnym mentorem w grze MatiMatyk. 
-                    Podaj jedną fascynującą ciekawostkę na temat: ${topic}.
-                    Zasady:
-                    1. Język prosty, dla dziecka.
-                    2. Max 2 krótkie zdania.
-                    3. Użyj jednej pasującej emotki.
-                    4. Nie zaczynaj od zwrotu "Czy wiesz, że".
-                    5. Bądź konkretny, podaj fakt lub liczbę.`
-                }]
-            }],
-            generationConfig: {
-                temperature: 0.8, // Trochę kreatywności, by uniknąć identycznych zdań
-                maxOutputTokens: 100,
-            }
-        };
+    // Tworzymy tekst promptu
+    const textPrompt = `Jesteś Albertem Einsteinem, radosnym mentorem w grze MatiMatyk. 
+        Podaj jedną fascynującą ciekawostkę na temat: ${topic}.
+        Zasady:
+        1. Język prosty, dla dziecka.
+        2. Max 2 krótkie zdania.
+        3. Użyj jednej pasującej emotki.
+        4. Nie zaczynaj od zwrotu "Czy wiesz, że".
+        5. Bądź konkretny, podaj fakt lub liczbę.`;
 
-        const response = await fetch(AIManager.PROXY_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(prompt)
-        });
+    // Wysyłamy obiekt, który ma klucz "prompt" (tego szuka api/chat.ts)
+    const response = await fetch(AIManager.PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            prompt: textPrompt 
+        })
+    });
 
-        if (!response.ok) throw new Error("Gemini API Connection Error");
-
-        const data = await response.json();
-        return data.candidates[0].content.parts[0].text.trim();
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Szczegóły błędu 400:", errorData);
+        throw new Error("Gemini API Connection Error");
     }
+
+    const data = await response.json();
+    
+    // Struktura odpowiedzi z Google pozostaje taka sama, więc to jest OK:
+    return data.candidates[0].content.parts[0].text.trim();
+}
 }
