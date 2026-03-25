@@ -22,10 +22,13 @@ export class MathScene extends Phaser.Scene {
     private talary: number = 0;
     private talenty: number = 0;
     private zakresA: number = 10;
+    private zakresAmin: number = 1;
     private zakresB: number = 10;
+    private zakresBmin: number = 1;
     private lastB: number = -1; // -1 na start, żeby przy pierwszym pytaniu nic nie blokowało
     private lastA: number = -1; // Dodajemy też lastA, żeby mieć pełną kontrolę nad generowanymi pytaniami
     private fixedA: number = 0; // Dodajemy fixedA, które będzie używane w trybie 'start' do generowania pytań z ustalonym a
+    private fractions: boolean = false; 
     private maxReward: number = 5; // Maksymalna liczba punktów do zdobycia za jedno pytanie
     private currentSolution: number = 0;
     private currentOperation: Operation = '+';
@@ -68,6 +71,21 @@ export class MathScene extends Phaser.Scene {
     ];
 
     // Obiekty UI
+    // --- ELEMENTY TŁA ---
+    private bgRect!: Phaser.GameObjects.Rectangle;
+    private bgSymbols: Phaser.GameObjects.Text[] = [];
+    // podział ekranu na kontenery
+    private uiTop!: Phaser.GameObjects.Container;    // Statystyki, Profil
+    private uiBottom!: Phaser.GameObjects.Container; // Powrót, Einstein (opcjonalnie) 
+    private uiLeft!: Phaser.GameObjects.Container;   // Mix, Hint, Opcje dodatkowe
+    private uiRight!: Phaser.GameObjects.Container;  // Historia wyników, Rankingi
+    private uiCenter!: Phaser.GameObjects.Container; // Główna tablica matematyczna
+
+    private opcje_bt!: GameButton;
+    private btnMixed!: GameButton;
+    private mixerBtn!: GameButton;
+
+    // dawne metody
     private tryb: string = 'praktyka'; // domyślny tryb
     private hintMode: boolean = false;
     private dropdownContainer!: Phaser.GameObjects.Container;
@@ -145,38 +163,42 @@ export class MathScene extends Phaser.Scene {
             this.currentUser = 'Gość';
         }
 
-        // 2. Wczytaj ustawienia (zakresy, talary) przez SaveManager
+        // Wczytaj ustawienia (zakresy, talary) przez SaveManager
         const savedData = SaveManager.load();
         
         // Synchronizujemy lokalne zmienne sceny z tym, co jest w SaveManagerze (który z kolei synchronizuje z Firebase, jeśli użytkownik jest zalogowany)
-        this.score = savedData.score;
+        this.score = savedData.score || 0;
         this.talary = savedData.talary || 0;
         this.talenty = savedData.talenty || 0;
-        this.fixedA = savedData.fixedA;
-        this.zakresA = savedData.zakresA;
-        this.zakresB = savedData.zakresB;
+        this.fixedA = savedData.fixedA || 4;
+        this.fractions = savedData.fractions || false;
+        this.zakresA = savedData.zakresA || 10;
+        this.zakresAmin = savedData.zakresAmin || 1;
+        this.zakresB = savedData.zakresB || 10;
+        this.zakresBmin = savedData.zakresBmin || 1;
         this.lastA = savedData.lastA;
         this.lastB = savedData.lastB;
-        this.tryb = savedData.tryb || 'praktyka'; // Jeśli tryb jest zapisany, użyj go, w przeciwnym razie domyślny 'praktyka'
+        this.tryb = savedData.tryb || 'ekspert'; // Jeśli tryb jest zapisany, użyj go, w przeciwnym razie domyślny 'ekspert'
 
-        // Tło dla całej sceny
-        this.add.rectangle(400, 300, 800, 600, 0x1a1a2e);
+        const { width, height } = this.scale;
 
-        // 1. KONTENER MENU
-        this.menuContainer = this.add.container(0, 0);
-        this.createMenu();
+        // 1. Tło wypełniające CAŁY dostępny ekran
+        this.bgRect = this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
 
-        // animacje
-        // Tworzymy kilka losowych symboli w tle
+        // 2. Symbole w tle - musimy je rozrzucić po aktualnym obszarze
         const symbols = ['+', '-', '×', '÷', '=', '%', '√', '∑', 'π', '∞', '>', '<'];
-        for (let i = 0; i < 15; i++) {
-            const x = Phaser.Math.Between(0, 800);
-            const y = Phaser.Math.Between(0, 600);
+        this.bgSymbols = []; // Zapiszemy je, by móc je przesunąć przy zmianie rozmiaru
+        for (let i = 0; i < 25; i++) { // Zwiększyłem liczbę, bo ekran może być duży
+            const x = Phaser.Math.Between(0, width);
+            const y = Phaser.Math.Between(0, height);
             const s = this.add.text(x, y, symbols[Phaser.Math.Between(0, symbols.length - 1)], {
                 fontSize: '32px',
                 color: '#ffffff',
-            }).setAlpha(0.1); // Bardzo przezroczyste
-            this.tweens.add({ // Powolna animacja pływania            
+            }).setAlpha(0.1);
+            
+            this.bgSymbols.push(s);
+            
+            this.tweens.add({
                 targets: s,
                 y: y - 50,
                 duration: Phaser.Math.Between(2000, 4000),
@@ -185,7 +207,11 @@ export class MathScene extends Phaser.Scene {
                 ease: 'Sine.easeInOut'
             });
         }
-        
+
+        // 1. KONTENER MENU
+        this.menuContainer = this.add.container(0, 0);
+        this.createMenu();
+               
         // 3. KONTENER GRY (domyślnie ukryty)
         this.gameContainer = this.add.container(0, 0);
         this.gameContainer.setVisible(false);
@@ -193,30 +219,11 @@ export class MathScene extends Phaser.Scene {
         this.einstein = new Einstein(this);   
         // 1. Sprawiamy, że Einstein reaguje na mysz
         this.einstein.setInteractive({ useHandCursor: true });
-
-        /*
-        const hintText = this.add.text(this.einstein.x, this.einstein.y - 120, 
-            'Kliknij mnie, a za pięć talarów opowiem Ci niezwykłą ciekawostkę! 💡', 
-            {
-                fontSize: '14px', 
-                backgroundColor: '#34495e', 
-                padding: { x: 8, y: 8 }, 
-                color: '#ffffff',
-                align: 'center', // Centrowanie tekstu wewnątrz ramki
-                wordWrap: { width: 180 } // Kluczowe: szerokość, po której tekst przejdzie do nowej linii
-            }
-        ).setOrigin(0.5).setAlpha(0).setDepth(200);
-        */
-
+        
         this.einstein.on('pointerover', () => {
             if (!this.einstein.isTalking) this.einstein.say('Kliknij mnie, a za pięć talarów opowiem Ci niezwykłą ciekawostkę! 💡', 4000)
                 //this.add.tween({ targets: hintText, alpha: 1, duration: 200 });
         });
-
-        //this.einstein.on('pointerout', () => {
-          
-            //this.add.tween({ targets: hintText, alpha: 0, duration: 200 });
-        //});
 
         this.einstein.on('pointerdown', async () => {
            // if (this.einstein.isTalking) return;
@@ -244,8 +251,189 @@ export class MathScene extends Phaser.Scene {
             }
         });
 
-        this.setupModeDropdown();
-        this.setupInfoPanel(250, 350);    
+        
+        this.setupInfoPanel(250, 350);  
+
+
+    // główne kontenery - szkielet sceny   
+    this.uiCenter = this.add.container(0, 0);
+    this.uiTop = this.add.container(0, 0);
+    this.uiLeft = this.add.container(0, 0);
+    this.uiRight = this.add.container(0, 0);
+    this.uiBottom = this.add.container(0, 0);
+
+    this.updateLayout();
+
+    this.fillTopBar();
+
+    
+
+        // Rejestracja zdarzenia resize
+    this.scale.on('resize', this.handleResize, this);
+    }
+
+
+    private fillTopBar() {
+
+        // Przycisk użytkownika (z możliwością wylogowania i zmianą użytkownika)
+
+        const user_btn = new GameButton(this, 60, 40, {
+        label: '👤',
+        style: 'dark',
+        size: 1,
+        callback: async () => {
+            this.toggleInfoPanel();
+        },        
+        onOver: () => {
+            this.einstein.say(
+                "Tu możesz sprawdzić swoje osiągnięcia, przelogować się lub zmienić użytkownika!", 
+                3000 );},
+        onOut: () => {
+            this.einstein.say("", 300); // Czyścimy tekst po wyjściu z przycisku
+        }});
+        this.uiTop.add(user_btn);
+
+        // Wynik i talary użytkownika
+        this.scoreText = this.add.text(140, 20, `${this.currentUser}: ${this.talary} 🪙`, { fontSize: '24px', 
+            padding: { top: 10, bottom: 10 }
+        });
+        this.uiTop.add(this.scoreText);
+        
+        // --- Przycisk OPCJE ---
+        const pos_x_start = (this.scale.width);
+        this.opcje_bt = new GameButton(this, pos_x_start-440, 40, {
+                label: 'OPCJE',
+                style: 'dark', // Zastąpiono 0x34495e
+                size: 1,
+                callback: () => {
+                    this.scene.start('SettingsScene');
+                },
+                onOver: () => {
+                    this.einstein.say("Tu możesz zmienić ustawienia i zmienić gracza!", 4000);
+                },
+                onOut: () => {
+                    this.einstein.say("", 300);
+                }
+            });
+        
+
+        // --- Przycisk MIESZANY (Mix) ---
+        this.btnMixed = new GameButton(this, pos_x_start -330, 40, {
+            label: 'Mix',
+            style: this.mixedOperations ? 'info' : 'dark',
+            size: 1,
+            callback: () => {
+                this.mixedOperations = !this.mixedOperations;
+                // Zakładam, że w GameButton masz metodę updateTheme lub użyjesz updateStyle
+                this.btnMixed.updateTheme(this.mixedOperations ? 'info' : 'dark');
+                
+                if (this.mixedOperations) {
+                    this.einstein.say("Tryb mieszany aktywowany! Każde pytanie może być innym działaniem!", 4000);
+                    this.startGame();
+                }
+            },
+            onOver: () => {
+                this.einstein.say("Tu włączasz tryb mieszany!", 3000);
+            }
+        });       
+
+        // --- Przycisk HINT (?) ---
+        this.mixerBtn = new GameButton(this, pos_x_start -220, 40, {
+            label: '?',
+            style: this.hintMode ? 'success' : 'dark',
+            size: 1,
+            callback: () => {
+                this.hintMode = !this.hintMode;
+                this.mixerBtn.updateTheme(this.hintMode ? 'success' : 'dark');
+                
+                if (this.hintMode) {            
+                    this.einstein.say("Tryb podpowiedzi aktywowany!", 2000);
+                    if (this.tryb === 'start' || this.tryb === 'nauka') {
+                        this.tryb = 'nauka';
+                        SaveManager.save({ tryb: this.tryb });
+                    }
+                } else {
+                    this.einstein.say("Wyłączam tryb podpowiedzi!", 2000);
+                }
+            },
+            onOver: () => {
+                this.einstein.say("Tu włączasz podpowiedzi! W trybach start i nauka pokażą Ci wynik na 2 sekundy!", 5000);
+            }
+        });
+        this.uiTop.add([this.opcje_bt, this.btnMixed, this.mixerBtn]);
+        // Zaczynamy np. od -400, żeby cały pasek był mniej więcej na środku
+      
+       //Tworzymy menu wyboru trybu gry 
+       this.setupModeDropdown(pos_x_start-100, 40);
+       this.uiTop.add(this.dropdownContainer);
+
+    }
+
+    private updateLayout() {
+        const { width: w, height: h } = this.scale;
+        const padding = 20; // Odstęp od krawędzi
+
+        if (w < 600) {
+            this.uiLeft.setVisible(false);
+            this.uiRight.setVisible(false);
+            // po przeniesieniu logo gry do centrum tu będzie też ukrywanie 
+            } else {
+                this.uiLeft.setVisible(true);
+                this.uiRight.setVisible(true);
+        }
+
+        // 1. CENTRUM - Zawsze środek
+        this.uiCenter.setPosition(w / 2, h / 2);
+
+        // 2. GÓRA - Środek góry
+        this.uiTop.setPosition(0, padding);
+
+        // 3. DÓŁ - Środek dołu
+        this.uiBottom.setPosition(10, h - padding);
+
+        // 4. LEWO - Środek lewej krawędzi
+        this.uiLeft.setPosition(padding, h / 2);
+
+        // 5. PRAWO - Środek prawej krawędzi
+        this.uiRight.setPosition(w - padding, h / 2);
+        
+        // EINSTEIN - Wolny strzelec, ale trzyma się uiBottom lub uiRight
+        this.einstein.setPosition( 150, h - 150);
+    }
+
+    handleResize(gameSize: Phaser.Structs.Size) {
+        const { width, height } = gameSize;
+
+        // 1. Aktualizacja tła (bgRect)
+        if (this.bgRect) {
+            this.bgRect.setPosition(width / 2, height / 2);
+            this.bgRect.setSize(width, height);
+        }
+
+        // 2. Aktualizacja symboli (bgSymbols)
+        this.bgSymbols.forEach(s => {
+            s.x = Phaser.Math.Between(0, width);
+            s.y = Phaser.Math.Between(0, height);
+        });
+
+        // 3. Centrowanie kontenerów
+        // Jeśli projektowałeś menu pod 800x600, centrujemy je tak:
+        const offsetX = (width - 800) / 2;
+        const offsetY = (height - 600) / 2;
+        
+        this.menuContainer.setPosition(offsetX, offsetY);
+        this.gameContainer.setPosition(offsetX, offsetY);
+
+        this.mixerBtn.setPosition(width-220, 40);
+        this.btnMixed.setPosition(width-330, 40);
+        this.opcje_bt.setPosition(width-440, 40);
+        this.dropdownContainer.setPosition(width-100, 40);
+
+
+        // 4. Einstein (zawsze w prawym dolnym rogu)
+        if (this.einstein) {
+            this.einstein.setPosition(120, height - 120);
+        }
     }
 
     setupInfoPanel(customWidth: number, customHeight: number) {
@@ -292,15 +480,25 @@ export class MathScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // 4. Przycisk ZAMKNIJ wewnątrz panelu
-    const closeBtn = new GameButton(this, 85, -150, 'X', 'danger', 1, () => {
-        this.toggleInfoPanel();
-    });
+        const closeBtn = new GameButton(this, 85, -150, {
+            label: 'X',
+            style: 'danger',
+            size: 1,
+            callback: () => {
+                this.toggleInfoPanel();
+            }
+        });
 
-    const logoutBtn = new GameButton(this, 0, 110, 'Wyloguj', 'dark', 3, async () => {
-        await AuthManager.logout();
-                    localStorage.removeItem('math_game_data_v2'); 
-                    this.scene.start('LoginScene');
-    });
+        const logoutBtn = new GameButton(this, 0, 110, {
+            label: 'Wyloguj',
+            style: 'dark',
+            size: 3,
+            callback: async () => {
+                await AuthManager.logout();
+                localStorage.removeItem('math_game_data_v2'); 
+                this.scene.start('LoginScene');
+            }
+        });
 
 
         // Dodajemy elementy do kontenera
@@ -308,16 +506,14 @@ export class MathScene extends Phaser.Scene {
     }
 
     private toggleInfoPanel() {
-    this.infoPanel.setVisible(!this.infoPanel.visible);    
-    // Opcjonalnie: blokujemy input w grze, gdy panel jest otwarty
-    if (this.htmlInput) {
-        this.htmlInput.disabled = this.infoPanel.visible;
-    } 
+        this.infoPanel.setVisible(!this.infoPanel.visible);    
+        // Opcjonalnie: blokujemy input w grze, gdy panel jest otwarty
+        if (this.htmlInput) {
+            this.htmlInput.disabled = this.infoPanel.visible;
+        } 
     } 
 
-    setupModeDropdown() {
-    const x = 700;
-    const y = 40;
+    setupModeDropdown(x: number, y: number) {    
     const tryby = ['start', 'nauka', 'praktyka', 'ekspert'];
     
     // Pobieramy aktualny tryb z ustawień
@@ -332,11 +528,11 @@ export class MathScene extends Phaser.Scene {
     optionsGroup.setVisible(false);
 
     // 3. Przycisk GŁÓWNY (używamy GameButton!)
-    const mainBtn = new GameButton(
-        this, 0, 0, 
-        this.tryb.toUpperCase(), 
-        'success', 3, // Rozmiar 3 pasuje do szerokości ok. 130-150px
-        () => {
+   const mainBtn = new GameButton(this, 0, 0, {
+        label: this.tryb.toUpperCase(),
+        style: 'success',
+        size: 1,
+        callback: () => {
             this.isDropdownOpen = !this.isDropdownOpen;
             optionsGroup.setVisible(this.isDropdownOpen);
             
@@ -344,101 +540,132 @@ export class MathScene extends Phaser.Scene {
             if (this.isDropdownOpen) {
                 this.einstein.say("Wybierz poziom trudności!");
             }
-        }, undefined, () => {
+        },
+        // Już nie potrzebujemy 'undefined' dla ikony! 
+        // Po prostu przypisujemy callbacki do konkretnych pól:
+        onOver: () => {
             this.einstein.say("Kliknij, aby wybrać tryb gry!", 3000);
-        }, () => {  
+        },
+        onOut: () => {  
             this.einstein.say("", 500); 
         }
-    );
+    });
 
     // 4. Generowanie przycisków opcji
     tryby.forEach((opcja, index) => {
-        const optBtn = new GameButton(
-            this, 0, index * 42, // Rozmieszczenie w pionie
-            opcja.toUpperCase(),
-            'dark', 3,
-            () => {
-                // Logika wyboru
-                this.tryb = opcja;
-                SaveManager.save({ tryb: this.tryb });
-                
-                // Aktualizacja przycisku głównego
-                mainBtn.updateText(`TRYB: ${opcja.toUpperCase()}`);
-                
-                // Zamknięcie menu
-                optionsGroup.setVisible(false);
-                this.isDropdownOpen = false;
-                
-                this.einstein.say(`Świetnie! Tryb ${opcja} to dobry wybór.`);
-            },
-            undefined, // brak ikony
-            () => { 
-                switch(opcja) {
-                case 'start': this.einstein.say("Tutaj będą działania po kolei, 5 talarów. Możesz w opcjach ustawić konkretną liczbę!"); break;
-                case 'nauka': this.einstein.say("Tryb działań matematycznych z możliwą podpowiedzią, 10 talarów"); break;
-                case 'praktyka': this.einstein.say("Po każdym działaniu będzie powtórka, 15 talarów"); break;
-                case 'ekspert': this.einstein.say("Tryb eksperta - żadnych podpowiedzi!, 20 talarów"); break;
-                }
-            }, // pointerover
-            () => { this.einstein.say("", 300); } // pointerout
-        );
-        
-        optionsGroup.add(optBtn);
+    const optBtn = new GameButton(this, 0, index * 42, {
+        label: opcja.toUpperCase(),
+        style: 'dark',
+        size: 1,
+        callback: () => {
+            // Logika wyboru
+            this.tryb = opcja;
+            SaveManager.save({ tryb: this.tryb });
+            
+            // Aktualizacja przycisku głównego
+            mainBtn.updateText(`${opcja.toUpperCase()}`);
+            
+            // Zamknięcie menu
+            optionsGroup.setVisible(false);
+            this.isDropdownOpen = false;
+            
+            this.einstein.say(`Świetnie! Tryb ${opcja} to dobry wybór.`);
+        },
+        // Wskazujemy konkretne zdarzenia bez liczenia przecinków:
+        onOver: () => { 
+            switch(opcja) {
+                case 'start': 
+                    this.einstein.say("Tutaj będą działania po kolei, 5 talarów. Możesz w opcjach ustawić konkretną liczbę!"); 
+                    break;
+                case 'nauka': 
+                    this.einstein.say("Tryb działań matematycznych z możliwą podpowiedzią, 10 talarów"); 
+                    break;
+                case 'praktyka': 
+                    this.einstein.say("Po każdym działaniu będzie powtórka, 15 talarów"); 
+                    break;
+                case 'ekspert': 
+                    this.einstein.say("Tryb eksperta - żadnych podpowiedzi!, 20 talarów"); 
+                    break;
+            }
+        },
+        onOut: () => { 
+            this.einstein.say("", 300); 
+        }
     });
+    
+    optionsGroup.add(optBtn);
+});     
 
     // Składamy wszystko w całość
     this.dropdownContainer.add([optionsGroup, mainBtn]);
 }
 
 createMenu() {
-        const title = this.add.text(400, 110, 'MatiMatyk', { 
+    const width = this.scale.width;
+    const pozycja_x = width - 200;
+        const title = this.add.text(pozycja_x, 110, 'MatiMatyk', { 
             fontSize: '50px', fontStyle: 'bold', color: '#f0adb4' 
         }).setOrigin(0.5);
 
         // Tworzymy przyciski używając naszej pomocniczej klasy GameButton
-        const btnAdd = new GameButton(this, 520, 200, 'Dodawanie', 0x3498db, 4, () => {
-                        this.currentOperation = '+';
-                        this.startGame();
-                        });
-        const btnSub = new GameButton(this, 520, 280, 'Odejmowanie', 0x3498db, 4, () => {
-                        this.currentOperation = '-';
-                        this.startGame();
-                        });
-        const btnMul = new GameButton(this, 520, 360, 'Mnożenie', 0x3498db, 4, () => {
-                        this.currentOperation = '*';
-                        this.startGame();
-                        });;
-        const btnDiv = new GameButton(this, 520, 440, 'Dzielenie', 0x3498db, 4, () => {
-                        this.currentOperation = '÷';
-                        this.startGame();
-                        });
+                const btnAdd = new GameButton(this, pozycja_x, 200, {
+            label: 'Dodawanie',
+            style: 'primary',
+            size: 4,
+            callback: () => {
+                this.currentOperation = '+';
+                this.startGame();
+            }
+        });
+
+        const btnSub = new GameButton(this, pozycja_x, 280, {
+            label: 'Odejmowanie',
+            style: 'primary',
+            size: 4,
+            callback: () => {
+                this.currentOperation = '-';
+                this.startGame();
+            }
+        });
+
+        const btnMul = new GameButton(this, pozycja_x, 360, {
+            label: 'Mnożenie',
+            style: 'primary',
+            size: 4,
+            callback: () => {
+                this.currentOperation = '*';
+                this.startGame();
+            }
+        });
+
+        const btnDiv = new GameButton(this, pozycja_x, 440, {
+            label: 'Dzielenie',
+            style: 'primary',
+            size: 4,
+            callback: () => {
+                this.currentOperation = '÷';
+                this.startGame();
+            }
+        });
 
         this.menuContainer.add([title, btnAdd, btnSub, btnMul, btnDiv]);
     }
 
 
     setupGameUI() {
+        const { width, height } = this.scale;
+        
     // Tworzymy elementy UI, które będą widoczne podczas gry (wynik, pytanie, input itp.)
-    // Przycisk użytkownika (z możliwością wylogowania i zmianą użytkownika)
-    new GameButton(this, 30, 40, '👤', 'dark', 1, async () => {
-        this.toggleInfoPanel();
-    }, undefined, () => {
-        this.einstein.say("Tu możesz sprawdzić swoje osiągnięcia, przelogować się lub zmienić użytkownika!", 3000);
-    }, () => {
-        this.einstein.say("", 300); // Czyścimy tekst po wyjściu z przycisku
-    });
+    
 
-    // Wynik i talary użytkownika
-    this.scoreText = this.add.text(60, 20, `${this.currentUser}: ${this.talary} 🪙`, { fontSize: '24px', 
-        padding: { top: 10, bottom: 10 }
-     });
+    
      // Licznik rozgrywki (na dole ekranu)
-     this.punktyText = this.add.text(280, 560, `Rozgrywka: ${this.score}`, { fontSize: '20px', 
+     this.punktyText = this.add.text(280, height - 50, `Rozgrywka: ${this.score}`, { fontSize: '20px', 
         padding: { top: 10, bottom: 10 }
      }).setOrigin(0.5);
     
      // Tekst z działaniem matematycznym
-    this.problemText = this.add.text(400, 200, '', { 
+    this.problemText = this.add.text(width /2, height / 4, '', { 
         fontSize: '110px', 
         fontStyle: 'bold', 
         color: '#ffffff',
@@ -464,52 +691,22 @@ createMenu() {
                 display: 'none' // Ukryty na start
             });
             // Wrzucamy Input do Phasera i przypisujemy do obu zmiennych
-            this.phaserInputObject = this.add.dom(600, 320, inputElement);
+            this.phaserInputObject = this.add.dom(width / 2, height / 2, inputElement);
             this.htmlInput = inputElement; 
             this.htmlInput.style.display = 'none'; // Ukrywamy do momentu startu gry
             this.phaserInputObject.setVisible(false); // Ukrywamy cały DOMElement do momentu startu gry
 
-    // Przycisk OPCJE
-    new GameButton(this, 440, 40, 'OPCJE', 0x34495e, 2, () => {
-        this.scene.start('SettingsScene'); // Przełącza scenę (zatrzymuje obecną)
-    }, undefined, () => {;
-        this.einstein.say("Tu możesz zmienić ustawienia i zmienić gracza!", 4000);
-    }, () => {        this.einstein.say("", 300); // Czyścimy tekst po wyjściu z przycisku
-    });
+    
 
-    // Przycisk MIESZANY
-    const btnMixed = new GameButton(this, 530, 40, 'Mix', this.mixedOperations ? 'info' : 'dark', 1, () => {
-            this.mixedOperations = !this.mixedOperations;
-            btnMixed.updateTheme(this.mixedOperations ? 'info' : 'dark');
-            if (this.mixedOperations) {
-            this.einstein.say("Tryb mieszany aktywowany! Każde pytanie może być innym działaniem!", 4000);
-            this.startGame();}  }, undefined, () => {
-            this.einstein.say("Tu włączasz tryb mieszany!", 3000);
-        }); 
-            
-    // Przycisk HINT
-    const mixerBtn = new GameButton(this, 590, 40, '?', this.hintMode ? 'success' : 'dark', 1, () => {
-        this.hintMode = !this.hintMode;
-        mixerBtn.updateTheme(this.hintMode ? 'success' : 'dark');
-        
-        if (this.hintMode) {            
-            this.einstein.say("Tryb podpowiedzi aktywowany!", 2000);
-            if (this.tryb === 'start' || this.tryb === 'nauka') {
-            this.tryb = 'nauka'; // Automatycznie przełączamy na tryb nauka, bo w innych trybach hinty nie działają
-                SaveManager.save({ tryb: this.tryb }); // Zapisujemy zmianę trybu
+        // --- Przycisk POWRÓT ---
+        const backButton = new GameButton(this, width - 100, height - 70, {
+            label: 'POWRÓT',
+            style: 'danger', // Zastąpiono 0xe74c3c
+            size: 2,
+            callback: () => {
+                this.scene.start('MathScene');
             }
-        } else {
-            
-            this.einstein.say("Wyłączam tryb podpowiedzi!", 2000);
-        }
-    }, undefined, () => {
-        this.einstein.say("Tu włączasz podpowiedzi! W trybach start i nauka pokażą Ci wynik na 2 sekundy!", 5000);
-    });   
-
-    // Przycisk POWRÓT
-    const backButton = new GameButton(this, 720, 550, 'POWRÓT', 0xe74c3c, 2, () => {
-        this.scene.start('MathScene'); // Przełącza scenę (zatrzymuje obecną)
-    });
+        });
     this.backButton = backButton; // Przechowujemy referencję, żeby móc nim zarządzać później (np. ukrywać w trybie start)
     this.backButton.setVisible(false); // Ukrywamy przycisk POWRÓT do momentu startu gry      
    
@@ -548,8 +745,8 @@ createMenu() {
             if (this.mixedOperations) {
              this.currentOperation = ['+', '-', '*', '÷'][MathLogic.getRandomInt(0, 3)] as Operation; // Losowy operator do mieszania
             }
-            
-            const q = MathLogic.generateQuestion(this.currentOperation, this.zakresA, this.zakresB, this.tryb, this.lastA, this.lastB, this.fixedA);
+                        
+            const q = MathLogic.generateQuestion(this.currentOperation, this.zakresAmin, this.zakresA, this.zakresBmin, this.zakresB, this.tryb, this.lastA, this.lastB, this.fixedA, this.fractions);
             this.lastA = q.newA; // Zapisujemy nową wartość a dla kolejnego pytania
             this.lastB = q.newB; // Zapisujemy nową wartość b dla kolejnego pytania            
             this.currentSolution = q.solution;
@@ -671,11 +868,20 @@ createMenu() {
 checkAnswer() {
     // 1. Zabezpieczenie przed pustym inputem lub blokadą
     if (this.htmlInput.disabled || this.htmlInput.value === "") return;
+    let rawValue = this.htmlInput.value;
+    // 2. Zamieniamy przecinek na kropkę, aby JS mógł to przetworzyć
+    rawValue = rawValue.replace(',', '.');
+    // 3. Używamy parseFloat zamiast parseInt (kluczowe dla ułamków!)
+    const userAns = parseFloat(rawValue);   
 
-    const val = parseInt(this.htmlInput.value);
-    if (isNaN(val)) return;
+    // 4. Logika porównania z tolerancją na błędy precyzji (floating point)
+    // Przy ułamkach bezpośrednie userAns === this.currentSolution bywa zdradliwe
+    const isCorrect = Math.abs(userAns - this.currentSolution) < 0.05;
 
-    if (val === this.currentSolution) {
+
+    if (isNaN(userAns)) return;
+
+    if (isCorrect) {
         // --- LOGIKA SUKCESU ---
         if (this.questionTimer) this.questionTimer.destroy(); // Usuwamy poprzedni timer, jeśli istnieje
         this.score+= this.maxReward; // Dodajemy punkty w zależności od trybu i czasu

@@ -127,4 +127,38 @@ export class AIManager {
     // Struktura odpowiedzi z Google pozostaje taka sama, więc to jest OK:
     return data.candidates[0].content.parts[0].text.trim();
 }
+    static async askEinstein(question: string): Promise<{ success: boolean; message: string }> {
+        const settings = SaveManager.load();
+
+        // 1. Koszt: 25 talarów
+        if (settings.talary < 25) {
+            return { success: false, message: "To trudne pytanie! Potrzebuję 50 talarów na nowe przybory do pisania... ✍️" };
+        }
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    prompt: `Jesteś Albertem Einsteinem w grze MatiMatyk. Odpowiedz krótko i mądrze na pytanie naukowe dziecka:
+                            ${question}. Max 3 zdania, użyj emotki. Jeśli się zdarzy, że dziecko napisze coś innego niż pytanie naukowe
+                            zignoruj to, bądź uprzejmy i wyrozumiały. Napisz coś moralnie pouczającego w nawiązaniu do tego, 
+                            co zostało napisane. Przykładem: "Jesteś głupi (jako zapytanie od dziecka)" - odpowiedź: "A czy potrafsz zdefiniować
+                            słowo mądrość i głupota?"` 
+                })
+            });
+
+            const data = await response.json();
+            const answer = data.candidates[0].content.parts[0].text;
+
+            // 2. Pobierz opłatę
+            await SaveManager.save({
+                talary: settings.talary - 25
+            });
+
+            return { success: true, message: answer };
+        } catch (e) {
+            return { success: false, message: "Mój umysł jest teraz w innym wymiarze. Spróbuj później! 🌌" };
+        }
+    }
 }

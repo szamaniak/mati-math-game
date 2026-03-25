@@ -9,7 +9,8 @@ export class Einstein {
     public isTalking: boolean = false;
 
     constructor(scene: Phaser.Scene) {
-        this.scene = scene;
+        this.scene = scene;        
+        const height  = this.scene.scale.height;
         
         // Postać
         this.sprite = scene.add.image(120, 480, 'einstein')
@@ -17,17 +18,53 @@ export class Einstein {
             .setDepth(1);
 
         // Grafika dymka
-        this.bubble = scene.add.graphics({ fillStyle: { color: 0xd3d3d3 } }).setDepth(101);
-        this.drawBubble();
+        this.bubble = scene.add.graphics().setDepth(101);
 
         // Tekst w dymku
-        this.text = scene.add.text(200, 330, '', {
+        this.text = scene.add.text(0, 0, '', {
             fontSize: '18px',
             color: '#000000',
-            wordWrap: { width: 280 }
+            wordWrap: { width: 260 },
+            align: 'center'
         }).setOrigin(0.5).setDepth(102);
 
+        // Ustawienie początkowej pozycji (zamiast sztywnych wartości w create)
+        this.setPosition(120, height - 120);
         this.hide();
+    }
+
+    /**
+     * Kluczowa metoda do dynamicznego przesuwania Einsteina
+     * @param x Nowa pozycja X środka postaci
+     * @param y Nowa pozycja Y środka postaci
+     */
+    public setPosition(x: number, y: number) {
+        // 1. Przesuń postać
+        this.sprite.setPosition(x, y);
+
+        // 2. Wylicz pozycję dymka (nad głową Einsteina)
+        const bubbleW = 300;
+        const bubbleH = 100;
+        const offsetX = -150; // Przesunięcie w lewo, by dymek był wycentrowany nad nim
+        const offsetY = -220; // Przesunięcie w górę, by nie zasłaniał głowy
+
+        const bX = x + offsetX;
+        const bY = y + offsetY;
+
+        // 3. Przerysuj dymek w nowym miejscu
+        this.bubble.clear();
+        this.bubble.fillStyle(0xd3d3d3, 1);
+        this.bubble.fillRoundedRect(bX, bY, bubbleW, bubbleH, 15);
+        
+        // Trójkącik dymka (celuje w głowę Einsteina)
+        this.bubble.fillTriangle(
+            x - 20, bY + bubbleH,     // Lewy róg u podstawy dymka
+            x + 20, bY + bubbleH,     // Prawy róg u podstawy dymka
+            x, y - 100                // Szczyt trójkąta celujący w postać
+        );
+
+        // 4. Przesuń tekst do środka dymka
+        this.text.setPosition(bX + bubbleW / 2, bY + bubbleH / 2);
     }
 
     private drawBubble() {
@@ -63,10 +100,11 @@ export class Einstein {
     }
 
     jump() {
+        const startY = this.sprite.y; // Pobieramy aktualny Y
         this.scene.tweens.add({
             targets: this.sprite,
             scale: 0.22,
-            y: 450,
+            y: startY - 30, // Skacze relatywnie do aktualnej pozycji
             duration: 100,
             yoyo: true,
             ease: 'Quad.out'

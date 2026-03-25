@@ -8,9 +8,12 @@ export interface GameSettings {
     talenty: number; // ✨ Nowa waluta za ciekawostki
     fixedA: number;
     zakresA: number;
+    zakresAmin: number;
     zakresB: number;
+    zakresBmin: number;
     lastA: number;  
     lastB: number;
+    fractions: boolean;
     userName: string;
     email?: string;
     tryb: string;
@@ -24,11 +27,14 @@ export class SaveManager {
         score: 0,
         talary: 0,
         talenty: 0,
-        fixedA: 0,
+        fixedA: 4,
         zakresA: 10,
+        zakresAmin: 1,
         zakresB: 10,
+        zakresBmin: 1,
         lastA: -1,
         lastB: -1,
+        fractions: false,
         userName: name,
         tryb: 'praktyka'
     });
@@ -40,8 +46,18 @@ export class SaveManager {
         const data = localStorage.getItem(this.SAVE_KEY);
         if (!data) return this.DEFAULT_SETTINGS('Gość');
         
-        // Używamy as GameSettings, aby zachować bezpieczeństwo typów w reszcie aplikacji
-        return JSON.parse(data) as GameSettings;
+        // MIGRACJA: Sprawdzamy czy nowe pola istnieją. Jeśli nie - dodajemy domyślne.
+    // Dzięki temu kod w SettingsScene nigdy nie dostanie 'undefined'
+    const parsed = JSON.parse(data);
+    if (parsed.zakresAmin === undefined) {
+        parsed.zakresAmin = 1;
+        parsed.zakresBmin = 1;
+        parsed.fractions = false;
+        // Opcjonalnie: od razu zapisz naprawione dane
+        localStorage.setItem(this.SAVE_KEY, JSON.stringify(parsed));
+    }
+
+    return parsed as GameSettings;
     }
 
     /**

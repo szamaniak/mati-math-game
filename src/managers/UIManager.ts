@@ -41,7 +41,11 @@ export class UIManager {
 
         // 5. Przycisk zamknięcia
         // Używamy Twojego GameButton - musimy go dodać do kontenera ręcznie lub pozycjonować
-        const closeBtn = new GameButton(scene, width / 2, height / 2 + 120, 'Super!', 0x27ae60, 2, () => {
+        const closeBtn = new GameButton(scene, width / 2, height / 2 + 120, {
+            label: 'Super!', 
+            style: 'success', 
+            size: 2, 
+            callback: () => {
             scene.add.tween({
                 targets: modalContainer,
                 alpha: 0,
@@ -52,7 +56,7 @@ export class UIManager {
                     if (onUpdate) onUpdate(); // Wywołujemy callback (np. skok Einsteina)
                 }
             });
-        });
+        }});
 
         // Składamy wszystko do kontenera
         modalContainer.add([overlay, panel, title, content, closeBtn]);

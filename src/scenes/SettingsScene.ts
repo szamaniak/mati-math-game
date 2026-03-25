@@ -1,206 +1,202 @@
 import { SaveManager } from '../logic/SaveManager';
 import { GameButton } from '../components/GameButton';
 import { auth } from '../config/firebaseConfig';
-import { AuthManager } from '../managers/AuthManager';
-import { updatePassword, updateProfile } from 'firebase/auth';
+import type { GameSettings } from '../logic/SaveManager';
 
 export class SettingsScene extends Phaser.Scene {
-    constructor() {
-        super('SettingsScene');
-    }
+    constructor() { super('SettingsScene'); }
 
     create() {
-        const settings = SaveManager.load();
+        const { width, height } = this.scale; 
+        const settings = SaveManager.load() as GameSettings;
         const user = auth.currentUser;
 
-        if (!user) {
-            this.scene.start('LoginScene');
-            return;
-        }
+        if (!user) { this.scene.start('LoginScene'); return; }
 
-        // --- TŁO ---
-        this.add.rectangle(400, 300, 800, 600, 0x2c3e50);
-        this.add.text(530, 40, 'USTAWIENIA PROFILU', {
-            fontSize: '32px', fontStyle: 'bold', color: '#ffffff'
-        }).setOrigin(0.5);
-
-        // --- SEKCJA PROFILU I KONTA (Lewa strona) ---
-        const leftX = 130;
-
-        // 
-
-         // 1. Wyciągamy informację o sposobie logowania
-        let loginIdentity = user.email || "Zalogowano przez Google";
-        const providerId = user.providerData[0]?.providerId; // Sprawdzamy czy to 'password' czy 'google.com'
-
-        // 2. Funkcja różnicująca: jeśli to konto na hasło i zawiera nasz dodatek, ucinamy go
-        if (providerId === 'password' && loginIdentity.endsWith('@mati-math-game.local')) {
-            loginIdentity = loginIdentity.replace('@mati-math-game.local', '');
-        }
-
-        // 3. Dodajemy panel informacyjny (z Twoimi wymiarami)
-        const infoBoxY = 30; 
-        this.add.rectangle(leftX, infoBoxY, 220, 40, 0x34495e).setAlpha(1);
-
-            this.add.text(leftX, infoBoxY - 10, 'Twój login:', { 
-                fontSize: '14px', 
-                color: '#bdc3c7' 
-            }).setOrigin(0.5);
-
-            this.add.text(leftX, infoBoxY + 8, loginIdentity, { 
-                fontSize: '14px', 
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5);
-
-            // Dodatkowa ikonka/tekst informujący o metodzie
-            const methodText = providerId === 'password' ? '🔐 Logowanie nickiem' : '🔵 Logowanie Google';
-            this.add.text(leftX, infoBoxY + 25, methodText, { 
-                fontSize: '12px', 
-                color: providerId === 'password' ? '#2ecc71' : '#3498db'
-            }).setOrigin(0.5);
+        // 1. Tło z gradientem lub jednolity głęboki kolor
+        this.add.rectangle(width / 2, height / 2, width, height, 0x2c3e50);
         
-        // 1. Edycja NICKU (Nickname)
-        this.add.text(leftX, 120, 'Twoja nazwa (Nick):', { fontSize: '18px', color: '#bdc3c7' }).setOrigin(0.5);
-        const nickInput = document.createElement('input');
-        nickInput.value = settings.userName || (user.displayName || "");
-        Object.assign(nickInput.style, {
-            width: '200px', padding: '8px', textAlign: 'center', fontSize: '18px',
-            borderRadius: '5px', border: '2px solid #9b59b6', backgroundColor: '#ecf0f1'
-        });
-        this.add.dom(leftX, 160, nickInput);
-
-        // Przycisk Zapisu Nicku
-        new GameButton(this, leftX, 210, 'ZAPISZ NICK', 0x9b59b6, 3, async () => {
-            const newNick = nickInput.value.trim();
-            if (newNick) {
-                // Aktualizacja w Auth (opcjonalnie dla Google) i w naszym systemie zapisu
-                await updateProfile(user, { displayName: newNick });
-                SaveManager.save({ userName: newNick });
-                console.log("Nick zaktualizowany!");
-                // Możesz dodać tekst "Zapisano!" na ekranie
-            }
-        });
-
-       
-
-        // 2. Sekcja HASŁA (Tylko jeśli chcemy umożliwić logowanie Nick/Hasło w przyszłości)
-        this.add.text(leftX, 250, 'Ustaw nowe hasło:', { fontSize: '18px', color: '#bdc3c7' }).setOrigin(0.5);
-        const passInput = document.createElement('input');
-        passInput.type = 'password';
-        passInput.placeholder = "Min. 6 znaków";
-        Object.assign(passInput.style, {
-            width: '200px', padding: '8px', textAlign: 'center', fontSize: '18px',
-            borderRadius: '5px', border: '2px solid #34495e', backgroundColor: '#ecf0f1'
-        });
-        this.add.dom(leftX, 290, passInput);
-
-        new GameButton(this, leftX, 340, 'USTAW HASŁO', 0x34495e, 3, async () => {
-            const newPass = passInput.value;
-            if (newPass.length >= 6) {
-                try {
-                    await updatePassword(user, newPass);
-                    alert("Hasło zostało ustawione!");
-                    passInput.value = "";
-                } catch (e: any) {
-                    alert("Błąd: " + e.message + " (Zaloguj się ponownie, aby zmienić hasło)");
-                }
-            } else {
-                alert("Hasło za krótkie!");
-            }
-        });
-
-        // Statystyka talarów (niżej)
-        this.add.text(leftX, 410, `💰 Twoje talary: ${settings.talary}`, { 
-            fontSize: '22px', color: '#f1c40f', fontStyle: 'bold'
+        // Nagłówek główny
+        this.add.text(width / 2, 60, 'USTAWIENIA I PROFIL', { 
+            fontSize: '42px', 
+            fontStyle: 'bold', 
+            color: '#f1c40f',
+            stroke: '#000000',
+            strokeThickness: 4
         }).setOrigin(0.5);
 
-        this.add.text(leftX, 450, ` ✨ Zebrane Talenty: ${settings.talenty || 0}`, {
-            fontSize: '22px', fontStyle: 'bold',
-            color: '#f1c40f'
-        }).setOrigin(0.5);
+        // Wyliczamy wymiary paneli (np. 40% szerokości ekranu każdy)
+        const panelWidth = width * 0.4;
+        const panelHeight = height * 0.6;
+        const leftColX = width * 0.28;
+        const rightColX = width * 0.72;
+        const centerY = height * 0.45;
 
-        // Przycisk WYLOGUJ
-        new GameButton(this, leftX, 520, 'WYLOGUJ', 0xe74c3c, 3, async () => {
-            await AuthManager.logout();
-            localStorage.removeItem('math_game_data_v2'); 
-            this.scene.start('LoginScene');
-        });
+        // 2. Rysowanie paneli tła dla sekcji
+        this.drawPanel(leftColX, centerY, panelWidth, panelHeight);
+        this.drawPanel(rightColX, centerY, panelWidth, panelHeight);
 
-        // --- PANEL USTAWIEŃ GRY (Prawa strona) ---
-        const panelWidth = 380;
-        const panelHeight = 320;
-        const panelX = 380; 
-        const panelY = 120;
+        // 3. Zawartość sekcji
+        this.drawProfileSection(leftColX, centerY - (panelHeight / 2) + 50, user);
+        this.drawGameSettingsSection(rightColX, centerY - (panelHeight / 2) + 50, settings);
 
-        const panelBg = this.add.graphics();
-        panelBg.fillStyle(0x000000, 0.3);
-        panelBg.fillRoundedRect(panelX + 5, panelY + 5, panelWidth, panelHeight, 20);
-        panelBg.fillStyle(0x34495e, 1);
-        panelBg.fillRoundedRect(panelX, panelY, panelWidth, panelHeight, 20);
-        panelBg.lineStyle(4, 0xecf0f1, 1);
-        panelBg.strokeRoundedRect(panelX, panelY, panelWidth, panelHeight, 20);
-
-        this.add.text(panelX + panelWidth/2, panelY + 30, `POZIOM TRUDNOŚCI`, {
-            fontSize: '22px', fontStyle: 'bold', color: '#2ecc71'
-        }).setOrigin(0.5);
-        
-        this.add.text(panelX + panelWidth/2, panelY + 60, `Dla trybu start można ustawić konkretną liczbę A`, {
-            fontSize: '12px', fontStyle: 'bold', color: '#e5e7e4'
-        }).setOrigin(0.5);
-        this.add.text(panelX + panelWidth/2, panelY + 80, `Jeśli ZakresA(Start) = 0 - zadania zaczną się od 2x2`, {
-            fontSize: '11px', fontStyle: 'bold', color: '#ffffff'
-        }).setOrigin(0.5);
-
-        // --- USTAWIENIE trybu konkretnej liczby A ---
-        this.add.text(panelX + 40, panelY + 120, 'Uczę się liczby:', { fontSize: '18px', color: '#ffffff' }).setOrigin(0, 0.5);
-        const input_fixedA = document.createElement('input');
-        input_fixedA.type = 'number';
-        const fixedAValue = settings.fixedA ? settings.fixedA : 0; // Domyślnie 10, jeśli nie ma ustawionej wartości
-        input_fixedA.value = fixedAValue.toString();
-        Object.assign(input_fixedA.style, {
-            width: '60px', fontSize: '20px', padding: '5px', textAlign: 'center',
-            borderRadius: '5px', border: '2px solid #2ecc71'
-        });
-        this.add.dom(panelX + 300, panelY + 120, input_fixedA);
-        input_fixedA.addEventListener('input', () => {
-            const val = parseInt(input_fixedA.value);
-            if (!isNaN(val) && val > 0) SaveManager.save({ fixedA: val });
-        });
-
-        // --- USTAWIENIE ZAKRESU A ---
-        this.add.text(panelX + 40, panelY + 170, 'Zakres A:', { fontSize: '20px', color: '#ffffff' }).setOrigin(0, 0.5);
-        const inputA = document.createElement('input');
-        inputA.type = 'number';
-        inputA.value = settings.zakresA.toString();
-        Object.assign(inputA.style, {
-            width: '60px', fontSize: '20px', padding: '5px', textAlign: 'center',
-            borderRadius: '5px', border: '2px solid #2ecc71'
-        });
-        this.add.dom(panelX + 300, panelY + 170, inputA);
-        inputA.addEventListener('input', () => {
-            const val = parseInt(inputA.value);
-            if (!isNaN(val) && val > 0) SaveManager.save({ zakresA: val });
-        });
-
-        // --- USTAWIENIE ZAKRESU B ---
-        this.add.text(panelX + 40, panelY + 210, 'Zakres B:', { fontSize: '20px', color: '#ffffff' }).setOrigin(0, 0.5);
-        const inputB = document.createElement('input');
-        inputB.type = 'number';
-        inputB.value = settings.zakresB.toString();
-        Object.assign(inputB.style, {
-            width: '60px', fontSize: '20px', padding: '5px', textAlign: 'center',
-            borderRadius: '5px', border: '2px solid #3498db'
-        });
-        this.add.dom(panelX + 300, panelY + 210, inputB);
-        inputB.addEventListener('input', () => {
-            const val = parseInt(inputB.value);
-            if (!isNaN(val) && val > 0) SaveManager.save({ zakresB: val });
-        });
-
-        // --- PRZYCISK POWROTU ---
-        new GameButton(this, 570, 520, 'Gramy!', 0x2ecc71, 3, () => {
-            this.scene.start('MathScene');
+        // 4. PRZYCISK POWRÓT (na dole, wycentrowany)
+        new GameButton(this, width / 2, height - 80, {
+            label: 'POWRÓT DO GRY',
+            style: 'success',
+            size: 3,
+            width: 300,
+            callback: () => { this.scene.start('MathScene'); }
         });
     }
+
+    private drawPanel(x: number, y: number, w: number, h: number) {
+        // Obrys i wypełnienie panelu
+        const panel = this.add.graphics();
+        panel.fillStyle(0x34495e, 0.8);
+        panel.fillRoundedRect(x - w / 2, y - h / 2, w, h, 20);
+        panel.lineStyle(4, 0x3498db, 1);
+        panel.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 20);
+    }
+
+    private drawProfileSection(x: number, y: number, user: any) {
+        this.add.text(x, y, 'TWOJE KONTO', { fontSize: '28px', color: '#f1c40f', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        let loginIdentity = (user.email || "Gracz").split('@')[0].toUpperCase();
+
+        // Awatar (opcjonalne - kółko z literą)
+        const avatarCircle = this.add.graphics();
+        avatarCircle.fillStyle(0x3498db, 1);
+        avatarCircle.fillCircle(x, y + 100, 50);
+        this.add.text(x, y + 100, loginIdentity[0], { fontSize: '40px', fontStyle: 'bold' }).setOrigin(0.5);
+
+        this.add.text(x, y + 180, `Zalogowany jako:\n${loginIdentity}`, { 
+            fontSize: '20px', 
+            color: '#ecf0f1', 
+            align: 'center',
+            lineSpacing: 10 
+        }).setOrigin(0.5);
+
+        // Przycisk wylogowania wewnątrz panelu
+        new GameButton(this, x, y + 280, {
+            label: "WYLOGUJ",
+            style: 'danger',
+            size: 2,
+            icon: 'user',
+            callback: async () => { 
+                await auth.signOut(); 
+                this.scene.start('LoginScene'); 
+            }
+        });
+    }
+
+    private drawGameSettingsSection(x: number, y: number, settings: GameSettings) {
+        this.add.text(x, y, 'PARAMETRY GRY', { fontSize: '28px', color: '#3498db', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        const startY = y + 70;
+        const spacing = 70;
+
+        this.createNumericSetting(x, startY, 'Zakres A (min):', settings.zakresAmin, (val) => SaveManager.save({ zakresAmin: val }));
+        this.createNumericSetting(x, startY + spacing, 'Zakres A (max):', settings.zakresA, (val) => SaveManager.save({ zakresA: val }));
+
+        this.createNumericSetting(x, startY + (spacing * 2), 'Zakres B (min):', settings.zakresBmin, (val) => SaveManager.save({ zakresBmin: val }));
+        this.createNumericSetting(x, startY + (spacing * 3), 'Zakres B (max):', settings.zakresB, (val) => SaveManager.save({ zakresB: val }));
+
+        this.createNumericSetting(x, startY + (spacing * 4), 'Moja wybrana liczba:', settings.fixedA, (val) => SaveManager.save({ fixedA: val }));
+
+        this.createCheckboxSetting(x, startY + (spacing * 5), 'Znam już ułamki:', settings.fractions, (val) => SaveManager.save({fractions: val}));
+
+        
+        this.add.text(x, startY + spacing * 6, 'Zmiany są zapisywane automatycznie', { 
+            fontSize: '14px', 
+            color: '#bdc3c7', 
+            fontStyle: 'italic' 
+        }).setOrigin(0.5);
+    }
+
+    private createNumericSetting(x: number, y: number, label: string, value: number, onUpdate: (val: number) => void) {
+        // Label wyrównany do prawej od środka
+        this.add.text(x - 20, y, label, { fontSize: '20px', color: '#ffffff' }).setOrigin(1, 0.5);
+        
+        // Stylizacja inputu HTML
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.value = (value !== undefined ? value : 1).toString();
+
+        input.value = value.toString();
+        Object.assign(input.style, { 
+            width: '100px', 
+            height: '35px',
+            fontSize: '20px', 
+            textAlign: 'center',
+            borderRadius: '8px',
+            border: '2px solid #3498db',
+            backgroundColor: '#ecf0f1',
+            color: '#2c3e50',
+            fontWeight: 'bold'
+        });
+
+        this.add.dom(x + 50, y, input);
+        
+        input.addEventListener('input', () => {
+            let val = parseInt(input.value);
+            if (!isNaN(val)) {                
+                onUpdate(val);
+            }
+        });
+    }
+
+    private createCheckboxSetting(x: number, y: number, label: string, initialValue: boolean, onUpdate: (val: boolean) => void) {
+    // 1. Label wyrównany do prawej (tak samo jak w numeric)
+    this.add.text(x - 20, y, label, { 
+        fontSize: '20px', 
+        color: '#ffffff' 
+    }).setOrigin(1, 0.5);
+
+    // 2. Tworzymy element HTML input typu checkbox
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = initialValue;
+
+    // 3. Stylizacja CSS (spójna z Twoim inputem numeric)
+    Object.assign(input.style, {
+        width: '35px',              // Kwadratowy, wysokość taka sama jak numeric
+        height: '35px',
+        cursor: 'pointer',
+        borderRadius: '8px',
+        border: '2px solid #3498db',
+        backgroundColor: '#ecf0f1',
+        appearance: 'none',         // Usuwamy domyślny wygląd systemowy
+        webkitAppearance: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'background-color 0.2s'
+    });
+
+    // Dodajemy "ptaszka" za pomocą pseudoelementu w CSS lub prostej zmiany koloru
+    // Tutaj dla prostoty zmienimy tło, gdy zaznaczony
+    const updateVisuals = () => {
+        input.style.backgroundColor = input.checked ? '#3498db' : '#ecf0f1';
+        input.style.color = input.checked ? '#ffffff' : 'transparent';
+        input.value = input.checked ? '✓' : ''; // Wstawiamy znak bezpośrednio
+        input.style.textAlign = 'center';
+        input.style.fontSize = '24px';
+        input.style.lineHeight = '35px';
+    };
+
+    // Ustawienie początkowe treści (ptaszka)
+    input.style.display = 'inline-block';
+    updateVisuals();
+
+    // 4. Dodanie do sceny jako obiekt DOM
+    // Ustawiamy x + 50, aby był w tej samej kolumnie co inputy liczbowe
+    this.add.dom(x + 50, y, input);
+
+    // 5. Obsługa zdarzenia zmiany
+    input.addEventListener('change', () => {
+        updateVisuals();
+        onUpdate(input.checked);
+    });
+}
 }

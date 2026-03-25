@@ -37,19 +37,31 @@ export class LoginScene extends Phaser.Scene {
         this.input.keyboard?.on('keydown-ENTER', () => this.handleLogin());
 
         // 3. Przycisk Logowania
-        new GameButton(this, width / 2, height / 2 + 80, 'ZALOGUJ SIĘ', 'success', 4, () => {
+        new GameButton(this, width / 2, height / 2 + 80, {
+            label: 'ZALOGUJ SIĘ', 
+            style: 'success', 
+            size: 4, 
+            callback: () => {
             this.handleLogin();
-        });
+        }});
 
         // 4. Przycisk Rejestracji
-        new GameButton(this, width / 2, height / 2 + 150, 'ZAŁÓŻ KONTO', 'primary', 3, () => {
+        new GameButton(this, width / 2, height / 2 + 150, {
+            label: 'ZAŁÓŻ KONTO', 
+            style: 'primary', 
+            size: 3, 
+            callback: () => {
             this.handleRegister();
-        });
+        }});
 
         // 5. Przycisk Google
-        new GameButton(this, width / 2, height / 2 + 220, 'Loguj -> Google', 'dark', 4, () => {
+        new GameButton(this, width / 2, height / 2 + 220, {
+            label: 'Loguj -> Google', 
+            style: 'dark', 
+            size: 4, 
+            callback: () => {
             this.handleGoogleLogin();
-        });
+        }});
 
         onAuthStateChanged(auth, (user) => {
     if (user) {

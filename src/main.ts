@@ -25,9 +25,13 @@ import { SettingsScene } from './scenes/SettingsScene'; // Importujemy klasę sc
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    parent: 'app',
+    scale: {
+        mode: Phaser.Scale.RESIZE, // FIT jest bezpieczniejszy niż RESIZE na start
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: '100%',  // Twoja bazowa szerokość "projektowa"
+        height: '100%',  // Twoja bazowa wysokość "projektowa"
+    },
+    parent: 'game-container',
     dom: {
         createContainer: true // Ważne dla inputu HTML!
     },
