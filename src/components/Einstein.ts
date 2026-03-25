@@ -67,16 +67,6 @@ export class Einstein {
         this.text.setPosition(bX + bubbleW / 2, bY + bubbleH / 2);
     }
 
-    private drawBubble() {
-        const bubbleX = 50;
-        const bubbleY = 280;
-        const width = 300;
-        const height = 100;
-        this.bubble.clear(); // Warto dodać clear przed rysowaniem
-        this.bubble.fillRoundedRect(bubbleX, bubbleY, width, height, 15);
-        this.bubble.fillTriangle(70, 380, 80, 410, 110, 380);
-    }
-
     say(message: string, duration: number = 3000) {
         if (this.speechEvent) this.speechEvent.remove();
         this.scene.tweens.killTweensOf([this.bubble, this.text]);

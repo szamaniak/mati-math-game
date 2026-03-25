@@ -16,12 +16,12 @@ export class MathLogic {
     static generateQuestion(operation: Operation, zakresAmin: number, zakresA: number, zakresBmin: number, zakresB: number, tryb: string, lastA: number = -1, lastB: number = -1, fixedA: number = 0, fractions: boolean = false): Question {
         //console.log(`Generowanie pytania. Tryb: ${tryb}, Ostatnie a: ${lastA}, Ostatnie b: ${lastB}`);
         if (tryb === 'start') {
-            return this.generateLinear(operation, zakresAmin, zakresA, zakresBmin, zakresB, lastA, lastB, fixedA);
+            return this.generateLinear(operation, zakresA, zakresBmin, zakresB, lastA, lastB, fixedA);
         }
         return this.generateRandom(operation, zakresAmin, zakresA, zakresBmin, zakresB, lastB, fractions);
     }
 
-    private static generateLinear(operation: Operation,  zakresAmin: number, zakresA: number, zakresBmin: number, zakresB: number, lastA: number, lastB: number, fixedA: number = 0): Question {
+    private static generateLinear(operation: Operation,  zakresA: number, zakresBmin: number, zakresB: number, lastA: number, lastB: number, fixedA: number = 0): Question {
         let a = lastA;
         let b = lastB;
 // 1. Obsługa trybu "Tylko jedna liczba"
